@@ -1,7 +1,10 @@
+import { useEffect, useState } from "react";
+
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
 
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import LockIcon from "@mui/icons-material/Lock";
@@ -16,11 +19,14 @@ import ProgressCard from "../components/ProgressCard";
 import ActivityCard from "../components/ActivityCard";
 import OrdersTable from "../components/OrdersTable";
 
-import {
-  summaryCards,
-  platformStatus,
-  activities,
-} from "../data/dashboardData";
+import { getDashboardSummary, type DashboardSummary } from "../services/api";
+
+const EMPTY_SUMMARY_CARDS = [
+  { title: "Total Orders", value: "0" },
+  { title: "Active Escrows", value: "0" },
+  { title: "Settlement Value", value: "₹0.00 L" },
+  { title: "Completed Orders", value: "0" },
+];
 
 const summaryIcons = [
   <ShoppingCartIcon fontSize="large" />,
@@ -30,6 +36,21 @@ const summaryIcons = [
 ];
 
 function Dashboard() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    getDashboardSummary()
+      .then(setSummary)
+      .catch(() => setLoadError(true));
+  }, []);
+
+  const summaryCards = summary?.summaryCards ?? EMPTY_SUMMARY_CARDS;
+  const platformStatus = summary?.platformStatus ?? [];
+  const activities = summary?.activities ?? [];
+  const recentOrders = summary?.recentOrders ?? [];
+  const settlementProgress = summary?.reports.metrics.settlementCompletion ?? 0;
+
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar />
@@ -64,6 +85,13 @@ function Dashboard() {
         >
           Programmable Money & Smart Escrow Platform
         </Typography>
+
+        {loadError && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            Could not reach the backend at {import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1"}.
+            Is it running?
+          </Alert>
+        )}
 
         {/* Summary Cards */}
 
@@ -117,8 +145,8 @@ function Dashboard() {
           >
             <ProgressCard
               title="Settlement Progress"
-              value={82}
-              description="82% of escrow settlements have been completed successfully."
+              value={settlementProgress}
+              description={`${settlementProgress}% of escrow settlements have been completed successfully.`}
             />
           </Grid>
 
@@ -146,7 +174,7 @@ function Dashboard() {
               xs: 12,
             }}
           >
-            <OrdersTable />
+            <OrdersTable orders={recentOrders} />
           </Grid>
         </Grid>
       </Box>

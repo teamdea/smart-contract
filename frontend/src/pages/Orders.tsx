@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -18,54 +19,20 @@ import Typography from "@mui/material/Typography";
 
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-
-interface Order {
-  id: string;
-  buyer: string;
-  merchant: string;
-  amount: number;
-  escrow: number;
-  status: "Pending" | "Active" | "Completed" | "Cancelled";
-  settlement: string;
-  createdOn: string;
-}
-
-const orders: Order[] = [
-  {
-    id: "ORD-1001",
-    buyer: "ABC Manufacturing",
-    merchant: "XYZ Equipment",
-    amount: 10000000,
-    escrow: 1000000,
-    status: "Active",
-    settlement: "Pending",
-    createdOn: "01-Jul-2026",
-  },
-  {
-    id: "ORD-1002",
-    buyer: "Global Motors",
-    merchant: "Tech Systems",
-    amount: 5000000,
-    escrow: 500000,
-    status: "Completed",
-    settlement: "Released",
-    createdOn: "05-Jul-2026",
-  },
-  {
-    id: "ORD-1003",
-    buyer: "Prime Industries",
-    merchant: "Delta Logistics",
-    amount: 2500000,
-    escrow: 250000,
-    status: "Pending",
-    settlement: "Awaiting Approval",
-    createdOn: "08-Jul-2026",
-  },
-];
+import { listOrders, type Order } from "../services/api";
+import { getOrderLifecycleState, getOrderLifecycleColor } from "../utils/orderState";
 
 function Orders() {
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
+
+  useEffect(() => {
+    listOrders()
+      .then(setOrders)
+      .catch(() => setOrders([]));
+  }, []);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -79,7 +46,7 @@ function Orders() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, status]);
+  }, [orders, search, status]);
 
   const statusColor = (value: string) => {
     switch (value) {
@@ -165,7 +132,7 @@ function Orders() {
               alignItems: "center",
             }}
           >
-            <Button variant="contained">
+            <Button variant="contained" onClick={() => navigate("/create-order")}>
               Create Order
             </Button>
           </Grid>
@@ -184,6 +151,7 @@ function Orders() {
                 <TableCell align="right"><strong>Order Value</strong></TableCell>
                 <TableCell align="right"><strong>Escrow</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
+                <TableCell><strong>Contract State</strong></TableCell>
                 <TableCell><strong>Settlement</strong></TableCell>
                 <TableCell><strong>Created On</strong></TableCell>
               </TableRow>
@@ -191,7 +159,12 @@ function Orders() {
 
             <TableBody>
               {filteredOrders.map((order) => (
-                <TableRow key={order.id} hover>
+                <TableRow
+                  key={order.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => navigate(`/settlement/${order.id}`)}
+                >
                   <TableCell>{order.id}</TableCell>
                   <TableCell>{order.buyer}</TableCell>
                   <TableCell>{order.merchant}</TableCell>
@@ -206,6 +179,14 @@ function Orders() {
                       label={order.status}
                       color={statusColor(order.status) as any}
                       size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getOrderLifecycleState(order)}
+                      color={getOrderLifecycleColor(getOrderLifecycleState(order))}
+                      size="small"
+                      variant="outlined"
                     />
                   </TableCell>
                   <TableCell>{order.settlement}</TableCell>

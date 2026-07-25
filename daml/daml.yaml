@@ -1,0 +1,9 @@
+sdk-version: 2.10.4
+name: escrow
+source: daml
+version: 0.0.1
+init-script: Escrow:setup
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script

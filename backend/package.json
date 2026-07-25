@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "npm run build && npm run start"
+    "dev": "nodemon",
+    "seed": "ts-node scripts/seed.ts"
   },
   "dependencies": {
     "compression": "^1.8.1",
@@ -26,6 +27,7 @@
     "@types/hpp": "^0.2.7",
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.3.0",
+    "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }

@@ -12,6 +12,8 @@ import AddShoppingCartIcon from "@mui/icons-material/AddShoppingCart";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 
 import { Link, useLocation } from "react-router-dom";
 
@@ -36,9 +38,19 @@ const menuItems = [
     path: "/orders",
   },
   {
+    title: "Logistics",
+    icon: <LocalShippingIcon />,
+    path: "/logistics",
+  },
+  {
     title: "Settlement",
     icon: <PaymentsIcon />,
     path: "/settlement",
+  },
+  {
+    title: "Wallets",
+    icon: <AccountBalanceIcon />,
+    path: "/wallets",
   },
   {
     title: "Reports",
