@@ -121,13 +121,39 @@ This runs the Daml Sandbox, backend, and frontend together with color-coded log 
 
 ## Notes
 
-- Data (orders/escrows) persists to `backend/data/db.json` — delete that file to reset to a clean demo state.
+- Data (orders/escrows/wallets) persists to `backend/data/db.json` — delete that file to reset to a clean demo state.
 - The Core Banking System (fund hold / settlement / release) and Logistics Oracle (delivery status) are **simulated inside the backend** (`backend/src/services/cbs.service.ts`, `oracle.service.ts`) — there's no real bank or courier API to integrate with for the hackathon. The escrow contract itself is real (Daml/Canton).
 - All scripts use Node's cross-platform `path`/`fs` APIs, not shell-specific syntax, so `npm run dev` behaves the same in zsh, Git Bash, and PowerShell.
-- Delivery status can be reported two ways: a human clicking Delivered/Failed on the **Logistics** page (`/logistics`), or `POST /api/v1/oracle/webhook` with header `X-Webhook-Secret` (see `.env.example`) — representing what a real courier/logistics system would call automatically. Both drive the same settlement logic.
-- Orders carry synthetic `buyerWalletId`/`supplierWalletId` fields (pre-filled with generated values on Create Order, editable). These are backed by a real (simulated) wallet ledger — see the **Wallets** page (`/wallets`) and `backend/src/services/cbs.service.ts`. Buyer wallets start at ₹5 Cr, supplier wallets start at ₹0. Placing an order moves 10% out of the buyer's available balance into escrow and freezes the other 90% as a held lien; delivery confirmation debits the lien and pays the supplier 100%; a failed delivery unfreezes and refunds the buyer back to exactly their starting balance. An order larger than the buyer's available balance is rejected (400).
-- The full wallet ledger (every customer's balance) is a **bank-operator-only** view, gated by `BANK_OPERATOR_SECRET` (see `.env.example`) — no individual buyer or supplier can browse everyone else's balance.
-- A wallet ID alone is **not** enough to see that wallet's balance — it's routinely shared with counterparties on an order (like a bank account number), so it can't double as a credential. Every wallet also gets a random PIN (`walletSecret`), revealed exactly once, in the `POST /orders` response, at the moment that wallet is first created: the buyer's own PIN, and (to be relayed out-of-band, e.g. email/phone) the supplier's PIN. The platform never shows either PIN again after that one response, and never includes it in any other API response (including the bank-operator ledger) — `POST /wallets/:walletId/lookup` requires both the ID and the PIN, with the same generic error either way, so it can't be used to enumerate valid wallet IDs. There's no real login system, so this is a credential-gated shared-secret scheme, not proper per-user authentication — a known, disclosed simplification, not a claim that this is production-ready access control.
+- Delivery status can be reported two ways: a human clicking Delivered/Failed on the **Logistics** page (only visible to a logged-in **Logistics** account — see below), or `POST /api/v1/oracle/webhook` with header `X-Webhook-Secret` (see `.env.example`) — representing what a real courier/logistics system would call automatically. Both drive the same settlement logic.
+
+### Accounts: register/login, not auto-created
+
+Wallets no longer spring into existence just because an order mentions their ID — they must be registered first, at `/login` ("Register" tab): pick a role, a Wallet ID, a **PIN** (your login credential), and an **Account Number** (a second, independent credential — see below). Buyer wallets start at ₹5 Cr; Supplier and Logistics accounts start at ₹0 (Logistics never holds funds at all).
+
+Three roles, matching the architecture diagram's separate actors:
+- **Buyer** — creates purchase orders.
+- **Supplier** — receives orders, ships goods. Cannot confirm their own delivery.
+- **Logistics** — an independent third party (diagram box 5: "Logistics Oracle Service / Trusted Delivery Tracker"). The *only* role that can report delivery status. This is deliberately separate from Supplier: if the party being paid could also certify that delivery happened, they could just self-attest and get paid regardless of whether anything shipped, which defeats the entire point of the escrow.
+
+- **Login** (Wallet ID + PIN) proves who you are and unlocks the app. It does **not** show your balance.
+- **Create Order** is Buyer-only: your own identity comes from your session (read-only); the Supplier field is a dropdown of every registered supplier (by name, not Wallet ID) built from `GET /wallets?role=Supplier` (identity only, no balances). Submitting against an unregistered wallet is rejected with a clear error.
+- **Logistics** (opens in a new tab) is Logistics-only — a Buyer or Supplier session sees a blocked message instead of the action buttons.
+- **Wallets** (opens in a new tab) requires your **Account Number** again, even though you're already logged in — a step-up check independent of your PIN, and it only ever shows *your own* wallet (the one from your session). This is deliberate: a wallet ID is shared with counterparties on a shared order (like a bank account number), so it can't double as a credential, and being logged in alone shouldn't be enough to see money. Neither the PIN nor the Account Number is ever included in any API response — both only ever get *checked*, never echoed back. Logistics accounts skip this screen entirely since they hold no funds.
+- There's no session expiry, password reset, or hashing of PINs/account numbers at rest — this is a credential-gated demo scheme sized for a hackathon, not production-grade authentication.
+
+### Seeded demo logins
+
+`npm run seed` registers 5 buyer/supplier pairs plus 1 Logistics account with simple, memorable credentials so you can log in live during a demo instead of registering from scratch:
+
+| Wallet ID | Role | PIN | Account Number |
+|---|---|---|---|
+| WALLET-BUYER-ACME01 | Buyer | 111111 | ACC-BUYER-0001 |
+| WALLET-SUPPLIER-BLUEOCEAN01 | Supplier | 222222 | ACC-SUPPLIER-0001 |
+| WALLET-BUYER-NIMBUS01 | Buyer | 111112 | ACC-BUYER-0002 |
+| WALLET-SUPPLIER-CASCADE01 | Supplier | 222212 | ACC-SUPPLIER-0002 |
+| WALLET-LOGISTICS-MAIN01 | Logistics | 333333 | ACC-LOGISTICS-0001 |
+
+(See `backend/scripts/seed.ts` for the full list.)
 
 
 #mock

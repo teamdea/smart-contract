@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -53,21 +53,11 @@ function StageIcon({ status }: { status: StageStatus }) {
   return <HourglassTopIcon color={status === "Processing" ? "warning" : "disabled"} />;
 }
 
-interface RevealedSecrets {
-  buyerWalletSecret: string | null;
-  supplierWalletSecret: string | null;
-}
-
 function Settlement() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { orderId } = useParams<{ orderId: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // Only present immediately after Create Order navigates here - a normal
-  // visit/refresh has no location.state, matching "shown once."
-  const revealed = location.state as RevealedSecrets | null;
 
   useEffect(() => {
     if (!orderId) return;
@@ -104,21 +94,6 @@ function Settlement() {
         <Typography color="text.secondary" sx={{ mb: 4 }}>
           Track the end-to-end programmable money settlement lifecycle.
         </Typography>
-
-        {revealed?.buyerWalletSecret && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            🔑 Your wallet PIN: <strong>{revealed.buyerWalletSecret}</strong> — save this now,
-            it won't be shown again. You'll need it on the Wallets page to check your balance.
-          </Alert>
-        )}
-
-        {revealed?.supplierWalletSecret && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            🔑 Supplier's wallet PIN: <strong>{revealed.supplierWalletSecret}</strong> — share
-            this with your supplier directly (e.g. email/phone); the platform won't show it
-            again after this.
-          </Alert>
-        )}
 
         {!orderId && (
           <Alert severity="info" sx={{ mb: 3 }}>
@@ -223,7 +198,9 @@ function Settlement() {
 
                     <Button
                       variant="outlined"
-                      onClick={() => navigate(isResolved ? "/orders" : "/logistics")}
+                      onClick={() =>
+                        isResolved ? navigate("/orders") : window.open("/logistics", "_blank", "noopener,noreferrer")
+                      }
                     >
                       {isResolved ? "Back to Orders" : "Go to Logistics"}
                     </Button>

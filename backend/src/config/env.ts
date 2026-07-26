@@ -30,15 +30,4 @@ export const env = {
   // "Mark Delivered" button on the Logistics page (which needs no secret,
   // since there's no auth system in this hackathon build).
   logisticsWebhookSecret: optional("LOGISTICS_WEBHOOK_SECRET", "hackathon-webhook-secret"),
-
-  // Gates the full wallet ledger (GET /wallets) - a bank's own back office
-  // legitimately sees every customer's balance, but no individual buyer or
-  // supplier should be able to browse everyone else's. There's no real
-  // login system in this build, so a shared secret stands in for
-  // "signed in as the bank operator." Looking up a single known wallet by
-  // ID (GET /wallets/:walletId) stays open, simulating a customer checking
-  // their own account - the residual gap is that a wallet ID isn't a real
-  // credential, so anyone who *learns* another party's wallet ID (e.g. from
-  // an order they're a counterparty on) could still look that one up.
-  bankOperatorSecret: optional("BANK_OPERATOR_SECRET", "hackathon-bank-operator-secret"),
 };

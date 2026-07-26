@@ -11,8 +11,7 @@ export const DAML_PARTY_OPERATOR = "Operator";
 export const DAML_PARTY_BUYER = "Buyer";
 export const DAML_PARTY_SUPPLIER = "Supplier";
 
-// Starting simulated balance when a wallet ID is first seen. Buyers start
-// funded so demo orders don't hit the insufficient-funds check; suppliers
-// start empty so a settlement visibly credits money into their wallet.
+// Starting simulated balance for a new Buyer account, so demo orders don't
+// hit the insufficient-funds check. Suppliers and Logistics accounts start
+// at 0 - see walletRepository's startingBalance().
 export const STARTING_BUYER_BALANCE = 50000000; // 5 Cr
-export const STARTING_SUPPLIER_BALANCE = 0;

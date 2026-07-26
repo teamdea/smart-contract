@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Box from "@mui/material/Box";
@@ -14,20 +14,16 @@ import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import FormSection from "../components/FormSection";
 import SummaryCard from "../components/SummaryCard";
-import { createOrder } from "../services/api";
-
-// Synthetic wallet id, pre-filled so the form always submits something
-// wallet-scoped but editable if you want to demo a specific value.
-function generateWalletId(role: "BUYER" | "SUPPLIER"): string {
-  return `WALLET-${role}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-}
+import { createOrder, listWalletsByRole, type WalletIdentity } from "../services/api";
+import { getSession } from "../services/session";
 
 function CreateOrder() {
   const navigate = useNavigate();
-  const [buyerName, setBuyerName] = useState("");
-  const [buyerWalletId, setBuyerWalletId] = useState(() => generateWalletId("BUYER"));
-  const [merchantName, setMerchantName] = useState("");
-  const [supplierWalletId, setSupplierWalletId] = useState(() => generateWalletId("SUPPLIER"));
+  const session = getSession();
+
+  const [suppliers, setSuppliers] = useState<WalletIdentity[]>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [supplierWalletId, setSupplierWalletId] = useState("");
   const [orderAmount, setOrderAmount] = useState(0);
   const [escrowPercent, setEscrowPercent] = useState(10);
   const [submitting, setSubmitting] = useState(false);
@@ -36,32 +32,53 @@ function CreateOrder() {
   const escrowAmount = useMemo(() => (orderAmount * escrowPercent) / 100, [orderAmount, escrowPercent]);
   const holdAmount = useMemo(() => orderAmount - escrowAmount, [orderAmount, escrowAmount]);
 
+  // Buyers pick a registered supplier by name, not by typing/knowing their
+  // Wallet ID - the dropdown is populated from every registered supplier.
+  useEffect(() => {
+    listWalletsByRole("Supplier")
+      .then(setSuppliers)
+      .catch(() => setSuppliers([]))
+      .finally(() => setSuppliersLoading(false));
+  }, []);
+
   const canSubmit =
-    buyerName.trim() !== "" &&
-    merchantName.trim() !== "" &&
-    buyerWalletId.trim() !== "" &&
-    supplierWalletId.trim() !== "" &&
+    session?.role === "Buyer" &&
+    supplierWalletId !== "" &&
     orderAmount > 0 &&
     !submitting;
 
   async function handleCreateOrder() {
+    if (!session) return;
     setError(null);
     setSubmitting(true);
     try {
-      const { order, buyerWalletSecret, supplierWalletSecret } = await createOrder({
-        buyerName,
-        merchantName,
+      const order = await createOrder({
+        supplierWalletId,
         orderAmount,
         escrowPercent,
-        buyerWalletId,
-        supplierWalletId,
       });
-      navigate(`/settlement/${order.id}`, { state: { buyerWalletSecret, supplierWalletSecret } });
+      navigate(`/settlement/${order.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create order");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (session?.role !== "Buyer") {
+    return (
+      <Box sx={{ display: "flex" }}>
+        <Navbar />
+        <Sidebar />
+        <Box component="main" sx={{ flexGrow: 1, bgcolor: "#f4f6f8", minHeight: "100vh", p: 3 }}>
+          <Toolbar />
+          <Alert severity="warning">
+            Only registered buyers can create orders. You're signed in as a{" "}
+            <strong>{session?.role ?? "guest"}</strong>.
+          </Alert>
+        </Box>
+      </Box>
+    );
   }
 
   return (
@@ -77,21 +94,41 @@ function CreateOrder() {
         <FormSection title="Buyer Information">
           <Grid container spacing={2}>
             <Grid size={{ xs:12, md:6 }}>
-              <TextField fullWidth label="Buyer Name" value={buyerName} onChange={(e)=>setBuyerName(e.target.value)} />
+              <TextField fullWidth label="Buyer Name" value={session.ownerName} disabled />
             </Grid>
             <Grid size={{ xs:12, md:6 }}>
-              <TextField fullWidth label="Buyer Wallet ID" value={buyerWalletId} onChange={(e)=>setBuyerWalletId(e.target.value)} />
+              <TextField fullWidth label="Buyer Wallet ID" value={session.walletId} disabled />
             </Grid>
           </Grid>
         </FormSection>
 
-        <FormSection title="Merchant Information">
+        <FormSection title="Supplier Information">
           <Grid container spacing={2}>
             <Grid size={{ xs:12, md:6 }}>
-              <TextField fullWidth label="Merchant Name" value={merchantName} onChange={(e)=>setMerchantName(e.target.value)} />
+              <TextField
+                select
+                fullWidth
+                label="Supplier"
+                value={supplierWalletId}
+                onChange={(e) => setSupplierWalletId(e.target.value)}
+                helperText={
+                  suppliersLoading
+                    ? "Loading registered suppliers..."
+                    : suppliers.length === 0
+                      ? "No suppliers registered yet"
+                      : "Pick who you're paying"
+                }
+                disabled={suppliersLoading || suppliers.length === 0}
+              >
+                {suppliers.map((supplier) => (
+                  <MenuItem key={supplier.walletId} value={supplier.walletId}>
+                    {supplier.ownerName}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
             <Grid size={{ xs:12, md:6 }}>
-              <TextField fullWidth label="Supplier Wallet ID" value={supplierWalletId} onChange={(e)=>setSupplierWalletId(e.target.value)} />
+              <TextField fullWidth label="Supplier Wallet ID" value={supplierWalletId || "—"} disabled />
             </Grid>
           </Grid>
         </FormSection>

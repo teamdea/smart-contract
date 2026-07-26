@@ -41,6 +41,7 @@ const menuItems = [
     title: "Logistics",
     icon: <LocalShippingIcon />,
     path: "/logistics",
+    openInNewTab: true,
   },
   {
     title: "Settlement",
@@ -51,6 +52,7 @@ const menuItems = [
     title: "Wallets",
     icon: <AccountBalanceIcon />,
     path: "/wallets",
+    openInNewTab: true,
   },
   {
     title: "Reports",
@@ -131,23 +133,42 @@ function Sidebar() {
       {/* Navigation */}
 
       <List sx={{ mt: 2 }}>
-        {menuItems.map((item) => (
-          <ListItemButton
-            key={item.path}
-            component={Link}
-            to={item.path}
-            selected={location.pathname === item.path}
-            sx={{
-              mx: 1,
-              my: 0.5,
-              borderRadius: 3,
-            }}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
+        {menuItems.map((item) =>
+          item.openInNewTab ? (
+            <ListItemButton
+              key={item.path}
+              component="a"
+              href={item.path}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                mx: 1,
+                my: 0.5,
+                borderRadius: 3,
+              }}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
 
-            <ListItemText primary={item.title} />
-          </ListItemButton>
-        ))}
+              <ListItemText primary={item.title} secondary="Opens in new tab" />
+            </ListItemButton>
+          ) : (
+            <ListItemButton
+              key={item.path}
+              component={Link}
+              to={item.path}
+              selected={location.pathname === item.path}
+              sx={{
+                mx: 1,
+                my: 0.5,
+                borderRadius: 3,
+              }}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+
+              <ListItemText primary={item.title} />
+            </ListItemButton>
+          )
+        )}
       </List>
 
       {/* Footer */}

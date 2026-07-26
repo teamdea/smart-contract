@@ -3,7 +3,7 @@ import { walletController } from "../controllers/wallet.controller";
 
 const router = Router();
 
-router.get("/", walletController.list);
-router.post("/:walletId/lookup", walletController.lookupWithSecret);
+router.get("/", walletController.listByRole);
+router.post("/:walletId/verify-account", walletController.verifyAccount);
 
 export default router;

@@ -19,12 +19,19 @@ import Typography from "@mui/material/Typography";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { listOrders, updateDeliveryStatus, type Order } from "../services/api";
+import { getSession } from "../services/session";
 
-// This is the merchant/logistics operator's screen: the only place delivery
-// status is reported for an order. Reporting it here is what drives the
-// Logistics Oracle simulation on the backend and releases (or refunds) the
-// held escrow funds - see Escrow.daml's ConfirmDelivery / FailOrExpireDelivery.
+// This is the independent Logistics Oracle's screen (architecture diagram
+// box 5: "Trusted Delivery Tracker") - the only place delivery status is
+// reported for an order. Reporting it here is what drives the Logistics
+// Oracle simulation on the backend and releases (or refunds) the held
+// escrow funds - see Escrow.daml's ConfirmDelivery / FailOrExpireDelivery.
+// Restricted to Logistics-role sessions, deliberately NOT the Supplier:
+// the party being paid should never be the same party who certifies that
+// delivery happened - that would just be self-attestation and would
+// defeat the point of the escrow.
 function Logistics() {
+  const session = getSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
@@ -63,6 +70,23 @@ function Logistics() {
 
   const pendingOrders = orders.filter((order) => order.status === "Active");
 
+  if (session?.role !== "Logistics") {
+    return (
+      <Box sx={{ display: "flex" }}>
+        <Navbar />
+        <Sidebar />
+        <Box component="main" sx={{ flexGrow: 1, bgcolor: "#f4f6f8", minHeight: "100vh", p: 3 }}>
+          <Toolbar />
+          <Alert severity="warning">
+            Only a registered Logistics account can update delivery status here — deliberately
+            not the buyer or the supplier, so the party being paid can't certify their own
+            delivery. You're signed in as a <strong>{session?.role ?? "guest"}</strong>.
+          </Alert>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar />
@@ -84,8 +108,9 @@ function Logistics() {
         </Typography>
 
         <Typography color="text.secondary" sx={{ mb: 4 }}>
-          Merchant / logistics partner view. Reporting delivery status here is what triggers escrow
-          settlement (funds released) or refund (funds returned to the buyer) on the ledger.
+          Independent logistics/courier view — not the buyer or the supplier. Reporting delivery
+          status here is what triggers escrow settlement (funds released) or refund (funds
+          returned to the buyer) on the ledger.
         </Typography>
 
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}

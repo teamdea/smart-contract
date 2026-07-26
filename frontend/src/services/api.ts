@@ -1,7 +1,19 @@
 import axios from "axios";
+import { getSession } from "./session";
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1",
+});
+
+// Protected write endpoints (create order, report delivery) verify who's
+// really calling via this bearer token - attach it automatically so every
+// request doesn't need to thread it through manually.
+client.interceptors.request.use((config) => {
+  const session = getSession();
+  if (session?.token) {
+    config.headers.Authorization = `Bearer ${session.token}`;
+  }
+  return config;
 });
 
 export interface Order {
@@ -35,9 +47,16 @@ export interface EscrowRecord {
 export interface Wallet {
   walletId: string;
   ownerName: string;
-  role: "Buyer" | "Supplier";
+  role: "Buyer" | "Supplier" | "Logistics";
   availableBalance: number;
   heldBalance: number;
+}
+
+export interface WalletIdentity {
+  walletId: string;
+  ownerName: string;
+  role: "Buyer" | "Supplier" | "Logistics";
+  token: string;
 }
 
 export interface SummaryCardData {
@@ -74,18 +93,43 @@ export interface DashboardSummary {
 }
 
 export interface CreateOrderInput {
-  buyerName: string;
-  merchantName: string;
+  // buyerWalletId is not sent - the backend derives it from the
+  // authenticated session (requireRole("Buyer")), so a logged-in buyer
+  // can't create an order impersonating another one.
+  supplierWalletId: string;
   orderAmount: number;
   escrowPercent: number;
-  buyerWalletId: string;
-  supplierWalletId: string;
+}
+
+export interface RegisterInput {
+  walletId: string;
+  ownerName: string;
+  role: "Buyer" | "Supplier" | "Logistics";
+  pin: string;
+  accountNumber: string;
 }
 
 interface ApiEnvelope<T> {
   success: boolean;
   data: T;
   message?: string;
+}
+
+export async function register(input: RegisterInput): Promise<WalletIdentity> {
+  const res = await client.post<ApiEnvelope<WalletIdentity>>("/auth/register", input);
+  return res.data.data;
+}
+
+export async function login(walletId: string, pin: string): Promise<WalletIdentity> {
+  const res = await client.post<ApiEnvelope<WalletIdentity>>("/auth/login", { walletId, pin });
+  return res.data.data;
+}
+
+// Identity-only directory (no balances) - backs the Supplier dropdown on
+// Create Order, so a buyer picks a registered supplier by name.
+export async function listWalletsByRole(role: "Buyer" | "Supplier"): Promise<WalletIdentity[]> {
+  const res = await client.get<ApiEnvelope<WalletIdentity[]>>("/wallets", { params: { role } });
+  return res.data.data;
 }
 
 export async function listOrders(): Promise<Order[]> {
@@ -98,16 +142,8 @@ export async function getOrder(id: string): Promise<Order> {
   return res.data.data;
 }
 
-export interface CreateOrderResult {
-  order: Order;
-  // Non-null only the first time each wallet is created - never shown
-  // again after this response. See services/order.service.ts (backend).
-  buyerWalletSecret: string | null;
-  supplierWalletSecret: string | null;
-}
-
-export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
-  const res = await client.post<ApiEnvelope<CreateOrderResult>>("/orders", input);
+export async function createOrder(input: CreateOrderInput): Promise<Order> {
+  const res = await client.post<ApiEnvelope<Order>>("/orders", input);
   return res.data.data;
 }
 
@@ -129,16 +165,9 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   return res.data.data;
 }
 
-export async function listWallets(bankOperatorSecret: string): Promise<Wallet[]> {
-  const res = await client.get<ApiEnvelope<Wallet[]>>("/wallets", {
-    headers: { "X-Bank-Operator-Secret": bankOperatorSecret },
-  });
-  return res.data.data;
-}
-
-// A wallet ID alone doesn't prove ownership (it's shared with counterparties
-// on an order) - looking up a balance requires the wallet's own secret/PIN.
-export async function lookupWallet(walletId: string, walletSecret: string): Promise<Wallet> {
-  const res = await client.post<ApiEnvelope<Wallet>>(`/wallets/${walletId}/lookup`, { walletSecret });
+// A step-up check independent of login: the account number chosen at
+// registration, required specifically to view balance on the Wallets page.
+export async function verifyWalletAccount(walletId: string, accountNumber: string): Promise<Wallet> {
+  const res = await client.post<ApiEnvelope<Wallet>>(`/wallets/${walletId}/verify-account`, { accountNumber });
   return res.data.data;
 }

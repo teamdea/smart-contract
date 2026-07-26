@@ -24,10 +24,14 @@ export const orderController = {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      // Includes buyerWalletSecret/supplierWalletSecret when either wallet
-      // is newly created - see orderService.createOrder.
-      const result = await orderService.createOrder(req.body);
-      ok(res, result, 201);
+      // requireRole("Buyer") guarantees req.wallet is set and is a Buyer -
+      // use it as the buyer, ignoring whatever the request body claims, so
+      // a logged-in buyer can't create an order impersonating another one.
+      const order = await orderService.createOrder({
+        ...req.body,
+        buyerWalletId: req.wallet!.walletId,
+      });
+      ok(res, order, 201);
     } catch (err) {
       next(err);
     }

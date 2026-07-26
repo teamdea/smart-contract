@@ -1,22 +1,35 @@
 import crypto from "crypto";
 import { CBSException } from "../exceptions/CBSException";
 import { walletRepository } from "../repositories/wallet.repository";
+import { Wallet } from "../models/Wallet";
 
 // Simulates the Core Banking System box from the architecture diagram
 // (Fund Hold API / Settlement API / Release Hold API), backed by a real
 // (simulated) wallet ledger - see models/Wallet.ts. There's no real bank
 // integration available for the hackathon demo, but balances actually move:
 // nothing here is just a fake reference code anymore.
+//
+// Wallets must already be registered (see auth.controller.ts) before any of
+// these are called - order.service.ts checks that before reaching here, so
+// a missing wallet at this point means something upstream skipped that
+// check, not a normal user-facing error.
 
 function generateReference(prefix: string): string {
   return `${prefix}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
+async function requireWallet(walletId: string): Promise<Wallet> {
+  const wallet = await walletRepository.findById(walletId);
+  if (!wallet) {
+    throw new CBSException(`Wallet ${walletId} is not registered`);
+  }
+  return wallet;
 }
 
 export interface RequestFundHoldParams {
   orderAmount: number;
   marginAmount: number; // the 10% deposited into escrow now
   buyerWalletId: string;
-  buyerName: string;
 }
 
 export interface SettleParams {
@@ -25,7 +38,6 @@ export interface SettleParams {
   marginAmount: number; // the 10% already in escrow, paid out alongside it
   buyerWalletId: string;
   supplierWalletId: string;
-  supplierName: string;
 }
 
 export interface ReleaseHoldParams {
@@ -40,7 +52,7 @@ export const cbsService = {
   // and step 5: actually deposit the 10% margin into escrow now.
   async requestFundHold(params: RequestFundHoldParams): Promise<{ holdReferenceId: string }> {
     const heldAmount = params.orderAmount - params.marginAmount;
-    const wallet = await walletRepository.findOrCreate(params.buyerWalletId, params.buyerName, "Buyer");
+    const wallet = await requireWallet(params.buyerWalletId);
 
     if (wallet.availableBalance < params.orderAmount) {
       throw new CBSException(
@@ -67,16 +79,12 @@ export const cbsService = {
       throw new CBSException("Missing hold reference for settlement");
     }
 
-    const buyerWallet = await walletRepository.findOrCreate(params.buyerWalletId, "Unknown Buyer", "Buyer");
+    const buyerWallet = await requireWallet(params.buyerWalletId);
     await walletRepository.update(params.buyerWalletId, {
       heldBalance: Math.max(0, buyerWallet.heldBalance - params.heldAmount),
     });
 
-    const supplierWallet = await walletRepository.findOrCreate(
-      params.supplierWalletId,
-      params.supplierName,
-      "Supplier"
-    );
+    const supplierWallet = await requireWallet(params.supplierWalletId);
     await walletRepository.update(params.supplierWalletId, {
       availableBalance: supplierWallet.availableBalance + params.heldAmount + params.marginAmount,
     });
@@ -91,7 +99,7 @@ export const cbsService = {
       throw new CBSException("Missing hold reference for release");
     }
 
-    const wallet = await walletRepository.findOrCreate(params.buyerWalletId, "Unknown Buyer", "Buyer");
+    const wallet = await requireWallet(params.buyerWalletId);
     await walletRepository.update(params.buyerWalletId, {
       heldBalance: Math.max(0, wallet.heldBalance - params.heldAmount),
       availableBalance: wallet.availableBalance + params.heldAmount + params.marginAmount,

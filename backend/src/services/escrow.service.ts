@@ -42,7 +42,6 @@ export const escrowService = {
         marginAmount: order.escrow,
         buyerWalletId: order.buyerWalletId,
         supplierWalletId: order.supplierWalletId,
-        supplierName: order.merchant,
       });
 
       await escrowRepository.update(escrow.escrowId, {

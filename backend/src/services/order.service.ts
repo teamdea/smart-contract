@@ -12,17 +12,11 @@ import { ApiError } from "../exceptions/ApiError";
 import { DEFAULT_ESCROW_PERCENT } from "../config/constants";
 
 export interface CreateOrderInput {
-  buyerName: string;
-  merchantName: string;
+  buyerWalletId: string;
+  supplierWalletId: string;
   orderAmount: number;
   escrowPercent?: number;
   deliverySla?: string;
-  buyerWalletId?: string;
-  supplierWalletId?: string;
-}
-
-function generateWalletId(role: "BUYER" | "SUPPLIER"): string {
-  return `WALLET-${role}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
 // A plain incrementing counter would collide with the Daml escrow contract
@@ -34,17 +28,6 @@ function generateWalletId(role: "BUYER" | "SUPPLIER"): string {
 function generateId(prefix: string, sequence: number): string {
   const suffix = crypto.randomBytes(2).toString("hex");
   return `${prefix}-${sequence}-${suffix}`;
-}
-
-export interface CreateOrderResult {
-  order: Order;
-  // Non-null only the first time each wallet is introduced to the system -
-  // see walletRepository.revealSecretIfNew. buyerWalletSecret is this
-  // buyer's own credential; supplierWalletSecret is meant to be relayed to
-  // the actual supplier out-of-band (email/phone) - the platform will never
-  // show it again after this one response.
-  buyerWalletSecret: string | null;
-  supplierWalletSecret: string | null;
 }
 
 export const orderService = {
@@ -60,27 +43,34 @@ export const orderService = {
     return order;
   },
 
-  async createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
-    if (!input.buyerName || !input.merchantName) {
-      throw ApiError.badRequest("buyerName and merchantName are required");
+  async createOrder(input: CreateOrderInput): Promise<Order> {
+    if (!input.buyerWalletId || !input.supplierWalletId) {
+      throw ApiError.badRequest("buyerWalletId and supplierWalletId are required");
     }
     if (!input.orderAmount || input.orderAmount <= 0) {
       throw ApiError.badRequest("orderAmount must be greater than zero");
     }
 
+    // Wallets must already be registered (see auth.controller.ts) - you
+    // can't pay an account that doesn't exist yet.
+    const buyerWallet = await walletRepository.findById(input.buyerWalletId);
+    if (!buyerWallet) {
+      throw ApiError.badRequest(`Buyer wallet "${input.buyerWalletId}" is not registered`);
+    }
+    if (buyerWallet.role !== "Buyer") {
+      throw ApiError.badRequest(`Wallet "${input.buyerWalletId}" is not registered as a Buyer`);
+    }
+    const supplierWallet = await walletRepository.findById(input.supplierWalletId);
+    if (!supplierWallet) {
+      throw ApiError.badRequest(`Supplier wallet "${input.supplierWalletId}" is not registered`);
+    }
+    if (supplierWallet.role !== "Supplier") {
+      throw ApiError.badRequest(`Wallet "${input.supplierWalletId}" is not registered as a Supplier`);
+    }
+
     const escrowPercent = input.escrowPercent ?? DEFAULT_ESCROW_PERCENT;
     const escrowAmount = Math.round((input.orderAmount * escrowPercent) / 100);
     const deliverySla = input.deliverySla ?? formatDisplayDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
-    const buyerWalletId = input.buyerWalletId || generateWalletId("BUYER");
-    const supplierWalletId = input.supplierWalletId || generateWalletId("SUPPLIER");
-
-    // Provision both wallets now (not just the buyer's, and not deferred
-    // until settlement) so each one's access PIN can be revealed the
-    // moment it's first introduced - never again after this.
-    await walletRepository.findOrCreate(buyerWalletId, input.buyerName, "Buyer");
-    await walletRepository.findOrCreate(supplierWalletId, input.merchantName, "Supplier");
-    const buyerWalletSecret = await walletRepository.revealSecretIfNew(buyerWalletId);
-    const supplierWalletSecret = await walletRepository.revealSecretIfNew(supplierWalletId);
 
     const existingOrders = await orderRepository.findAll();
     const sequence = 1001 + existingOrders.length;
@@ -91,8 +81,7 @@ export const orderService = {
     const { holdReferenceId } = await cbsService.requestFundHold({
       orderAmount: input.orderAmount,
       marginAmount: escrowAmount,
-      buyerWalletId,
-      buyerName: input.buyerName,
+      buyerWalletId: input.buyerWalletId,
     });
 
     // Diagram steps 6/7: record the escrow contract on the Daml/Canton ledger.
@@ -100,8 +89,8 @@ export const orderService = {
       orderId,
       escrowId,
       holdReferenceId,
-      buyerWalletId,
-      supplierWalletId,
+      buyerWalletId: input.buyerWalletId,
+      supplierWalletId: input.supplierWalletId,
       orderAmount: input.orderAmount,
       marginAmount: escrowAmount,
       deliverySla,
@@ -122,8 +111,8 @@ export const orderService = {
 
     const order: Order = {
       id: orderId,
-      buyer: input.buyerName,
-      merchant: input.merchantName,
+      buyer: buyerWallet.ownerName,
+      merchant: supplierWallet.ownerName,
       amount: input.orderAmount,
       escrow: escrowAmount,
       status: "Active",
@@ -132,13 +121,13 @@ export const orderService = {
       escrowId,
       holdReferenceId,
       deliverySla,
-      buyerWalletId,
-      supplierWalletId,
+      buyerWalletId: input.buyerWalletId,
+      supplierWalletId: input.supplierWalletId,
     };
     await orderRepository.create(order);
 
     logActivity(`Created Order ${orderId}`);
 
-    return { order, buyerWalletSecret, supplierWalletSecret };
+    return order;
   },
 };

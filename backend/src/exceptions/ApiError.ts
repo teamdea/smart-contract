@@ -14,4 +14,12 @@ export class ApiError extends Error {
   static badRequest(message: string): ApiError {
     return new ApiError(400, message);
   }
+
+  static conflict(message: string): ApiError {
+    return new ApiError(409, message);
+  }
+
+  static unauthorized(message: string): ApiError {
+    return new ApiError(401, message);
+  }
 }

@@ -1,47 +1,42 @@
 import { Request, Response, NextFunction } from "express";
 import { walletRepository } from "../repositories/wallet.repository";
-import { Wallet } from "../models/Wallet";
 import { ApiError } from "../exceptions/ApiError";
-import { env } from "../config/env";
+import { toPublicWallet } from "../utils/wallet";
 import { ok } from "../utils/response";
 
-// walletSecret must never round-trip in an API response (except the one-time
-// reveal in order.service.ts's createOrder result) - not even to a caller
-// who just proved they know it, and not even to the bank operator. Otherwise
-// anyone who briefly holds the bank-operator secret could harvest every
-// customer's PIN for later use, long after that secret is rotated.
-function toPublicWallet(wallet: Wallet) {
-  const { walletSecret, secretRevealed, ...publicFields } = wallet;
-  return publicFields;
-}
-
 export const walletController = {
-  // The full ledger is a bank-operator-only view - no customer should be
-  // able to browse every other customer's balance. Gated by a shared
-  // secret since there's no real login system in this build.
-  async list(req: Request, res: Response, next: NextFunction) {
+  // Identity-only directory (walletId, ownerName, role - never balance),
+  // filtered by role. Backs the Supplier dropdown on Create Order: a buyer
+  // picks a registered supplier by name instead of typing/knowing their
+  // Wallet ID. Safe to be public - no balance or credentials in the response.
+  async listByRole(req: Request, res: Response, next: NextFunction) {
     try {
-      const providedSecret = req.header("X-Bank-Operator-Secret");
-      if (providedSecret !== env.bankOperatorSecret) {
-        throw new ApiError(401, "Invalid or missing X-Bank-Operator-Secret header");
+      const role = req.query.role;
+      if (role !== "Buyer" && role !== "Supplier") {
+        throw ApiError.badRequest('Query param "role" must be "Buyer" or "Supplier"');
       }
-      const wallets = await walletRepository.findAll();
-      ok(res, wallets.map(toPublicWallet));
+      const wallets = await walletRepository.findByRole(role);
+      ok(
+        res,
+        wallets.map((wallet) => ({ walletId: wallet.walletId, ownerName: wallet.ownerName, role: wallet.role }))
+      );
     } catch (err) {
       next(err);
     }
   },
 
-  // A wallet ID alone isn't proof of ownership - it's routinely shared with
-  // counterparties on an order, like a bank account number. Balance lookups
-  // require the wallet's secret too. Deliberately the same error either way
-  // a real ID with a wrong secret, or a made-up ID - so this can't be used
-  // to enumerate which wallet IDs exist.
-  async lookupWithSecret(req: Request, res: Response, next: NextFunction) {
+  // Step-up check for the Wallets page: being logged in isn't enough to see
+  // balance - you additionally need the account number chosen at
+  // registration. Deliberately the same error either way (wrong number or
+  // unknown wallet) so this can't be used to enumerate wallet IDs.
+  async verifyAccount(req: Request, res: Response, next: NextFunction) {
     try {
-      const wallet = await walletRepository.verifySecret(req.params.walletId, req.body.walletSecret ?? "");
+      const wallet = await walletRepository.verifyAccountNumber(
+        req.params.walletId,
+        req.body.accountNumber ?? ""
+      );
       if (!wallet) {
-        throw ApiError.notFound("Invalid wallet ID or PIN");
+        throw ApiError.notFound("Invalid wallet ID or account number");
       }
       ok(res, toPublicWallet(wallet));
     } catch (err) {
