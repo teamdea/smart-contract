@@ -16,6 +16,7 @@ import FormSection from "../components/FormSection";
 import SummaryCard from "../components/SummaryCard";
 import { createOrder, listWalletsByRole, type WalletIdentity } from "../services/api";
 import { getSession } from "../services/session";
+import { apiErrorMessage } from "../utils/errors";
 
 function CreateOrder() {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ function CreateOrder() {
       });
       navigate(`/settlement/${order.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create order");
+      setError(apiErrorMessage(err, "Failed to create order"));
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { orderRepository } from "../repositories/order.repository";
-import { store } from "../repositories/store";
+import { listRecentActivities } from "../repositories/activity.repository";
 import { ok } from "../utils/response";
 
 function formatInr(amount: number): string {
@@ -16,6 +16,7 @@ export const dashboardController = {
   async getSummary(req: Request, res: Response, next: NextFunction) {
     try {
       const orders = await orderRepository.findAll();
+      const activities = await listRecentActivities();
       const activeOrders = orders.filter((o) => o.status === "Active");
       const completedOrders = orders.filter((o) => o.status === "Completed");
       const cancelledOrders = orders.filter((o) => o.status === "Cancelled");
@@ -47,7 +48,7 @@ export const dashboardController = {
           { service: "Settlement Engine", status: "Running" },
           { service: "Delivery Verification", status: "Online" },
         ],
-        activities: store.get("activities"),
+        activities,
         recentOrders: orders.slice(-5).reverse(),
         reports: {
           escrowBalance: formatInr(escrowBalance),

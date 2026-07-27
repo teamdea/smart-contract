@@ -17,6 +17,14 @@ export interface DamlEscrowPayload {
   status: DamlEscrowStatus;
 }
 
+// A wallet's real, ledger-held balance - see Escrow.daml's CashHolding
+// template. Exactly one live (non-archived) contract exists per wallet.
+export interface DamlCashHoldingPayload {
+  operator: string;
+  walletId: string;
+  amount: string; // Daml Decimal is serialized as a string
+}
+
 export interface DamlContract<TPayload> {
   contractId: string;
   templateId: string;

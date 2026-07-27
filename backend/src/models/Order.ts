@@ -1,5 +1,6 @@
 import { OrderStatus } from "../enums/OrderStatus";
 import { PaymentStatus } from "../enums/PaymentStatus";
+import { FulfillmentStatus } from "../enums/FulfillmentStatus";
 
 // Field names match what frontend/src/pages/Orders.tsx already renders,
 // so the frontend only needs its data source swapped, not its shape.
@@ -18,4 +19,8 @@ export interface Order {
   deliverySla: string;
   buyerWalletId: string;
   supplierWalletId: string;
+
+  // Shipment lifecycle, separate from status/settlement above - see
+  // enums/FulfillmentStatus.ts.
+  fulfillmentStatus: FulfillmentStatus;
 }

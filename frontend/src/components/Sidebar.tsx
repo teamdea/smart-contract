@@ -18,6 +18,7 @@ import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import { Link, useLocation } from "react-router-dom";
 
 import teamDeaLogo from "../assets/teamdea-logo.png";
+import { getSession } from "../services/session";
 
 const DRAWER_WIDTH = 295;
 
@@ -63,6 +64,13 @@ const menuItems = [
 
 function Sidebar() {
   const location = useLocation();
+  const session = getSession();
+  // Buyer and Supplier now get a tracking link straight from the Orders
+  // page instead - Logistics has its own dedicated, unauthenticated entry
+  // point from the login screen, so it doesn't belong in their nav either.
+  const visibleItems = menuItems.filter(
+    (item) => item.path !== "/logistics" || session?.role === "Logistics"
+  );
 
   return (
     <Drawer
@@ -133,7 +141,7 @@ function Sidebar() {
       {/* Navigation */}
 
       <List sx={{ mt: 2 }}>
-        {menuItems.map((item) =>
+        {visibleItems.map((item) =>
           item.openInNewTab ? (
             <ListItemButton
               key={item.path}

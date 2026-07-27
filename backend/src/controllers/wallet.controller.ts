@@ -3,6 +3,7 @@ import { walletRepository } from "../repositories/wallet.repository";
 import { ApiError } from "../exceptions/ApiError";
 import { toPublicWallet } from "../utils/wallet";
 import { ok } from "../utils/response";
+import { getCashHolding, getHeldAmountForBuyer } from "../ledger/ledger.service";
 
 export const walletController = {
   // Identity-only directory (walletId, ownerName, role - never balance),
@@ -38,7 +39,20 @@ export const walletController = {
       if (!wallet) {
         throw ApiError.notFound("Invalid wallet ID or account number");
       }
-      ok(res, toPublicWallet(wallet));
+
+      // Balance isn't stored - it's read fresh from the ledger every time,
+      // so this always reflects the real CashHolding contracts on Canton,
+      // not a cached number that could drift out of sync.
+      const [holding, heldBalance] = await Promise.all([
+        getCashHolding(wallet.walletId),
+        getHeldAmountForBuyer(wallet.walletId),
+      ]);
+
+      ok(res, {
+        ...toPublicWallet(wallet),
+        availableBalance: holding?.amount ?? 0,
+        heldBalance,
+      });
     } catch (err) {
       next(err);
     }

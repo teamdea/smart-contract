@@ -45,4 +45,15 @@ export const orderController = {
       next(err);
     }
   },
+
+  async confirm(req: Request, res: Response, next: NextFunction) {
+    try {
+      // requireRole("Supplier") guarantees req.wallet is set - use it as the
+      // confirming party, ignoring anything the request body claims.
+      const order = await orderService.confirmOrder(req.params.id, req.wallet!.walletId);
+      ok(res, order);
+    } catch (err) {
+      next(err);
+    }
+  },
 };

@@ -7,6 +7,7 @@ import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Alert from "@mui/material/Alert";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -19,19 +20,38 @@ import Typography from "@mui/material/Typography";
 
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import { listOrders, type Order } from "../services/api";
+import { confirmOrder, listOrders, type Order } from "../services/api";
 import { getOrderLifecycleState, getOrderLifecycleColor } from "../utils/orderState";
+import { getSession } from "../services/session";
+import { apiErrorMessage } from "../utils/errors";
+
+const FULFILLMENT_LABELS: Record<Order["fulfillmentStatus"], string> = {
+  AwaitingConfirmation: "Awaiting Confirmation",
+  Confirmed: "Confirmed",
+};
+
+const FULFILLMENT_COLORS: Record<Order["fulfillmentStatus"], "default" | "info"> = {
+  AwaitingConfirmation: "default",
+  Confirmed: "info",
+};
 
 function Orders() {
   const navigate = useNavigate();
+  const session = getSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    listOrders()
+  function refresh() {
+    return listOrders()
       .then(setOrders)
       .catch(() => setOrders([]));
+  }
+
+  useEffect(() => {
+    refresh();
   }, []);
 
   const filteredOrders = useMemo(() => {
@@ -63,6 +83,27 @@ function Orders() {
     }
   };
 
+  // Only the order's own Supplier gets the Confirm Order action - the
+  // backend re-checks this ownership too, this just avoids showing a
+  // button that would fail if clicked.
+  function isOwnSupplierOrder(order: Order): boolean {
+    return session?.role === "Supplier" && order.supplierWalletId === session.walletId;
+  }
+
+  async function handleConfirm(order: Order, e: React.MouseEvent) {
+    e.stopPropagation();
+    setActionError(null);
+    setBusyOrderId(order.id);
+    try {
+      await confirmOrder(order.id);
+      await refresh();
+    } catch (err) {
+      setActionError(apiErrorMessage(err, `Could not confirm ${order.id}`));
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar />
@@ -93,6 +134,8 @@ function Orders() {
         >
           Manage and track all programmable money transactions.
         </Typography>
+
+        {actionError && <Alert severity="error" sx={{ mb: 3 }}>{actionError}</Alert>}
 
         <Grid
           container
@@ -152,8 +195,10 @@ function Orders() {
                 <TableCell align="right"><strong>Escrow</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
                 <TableCell><strong>Contract State</strong></TableCell>
+                <TableCell><strong>Fulfillment</strong></TableCell>
                 <TableCell><strong>Settlement</strong></TableCell>
                 <TableCell><strong>Created On</strong></TableCell>
+                <TableCell align="right"><strong>Actions</strong></TableCell>
               </TableRow>
             </TableHead>
 
@@ -189,8 +234,27 @@ function Orders() {
                       variant="outlined"
                     />
                   </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={FULFILLMENT_LABELS[order.fulfillmentStatus]}
+                      color={FULFILLMENT_COLORS[order.fulfillmentStatus]}
+                      size="small"
+                    />
+                  </TableCell>
                   <TableCell>{order.settlement}</TableCell>
                   <TableCell>{order.createdOn}</TableCell>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                    {isOwnSupplierOrder(order) && order.fulfillmentStatus === "AwaitingConfirmation" && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={busyOrderId === order.id}
+                        onClick={(e) => handleConfirm(order, e)}
+                      >
+                        Confirm Order
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

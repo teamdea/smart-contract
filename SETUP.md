@@ -6,7 +6,7 @@ This project has three moving parts you need running locally, in this order:
 2. **Backend** — Node/Express API (`backend/`)
 3. **Frontend** — React/Vite app (`frontend/`)
 
-Everything is free and runs entirely on your machine — no cloud account required.
+The Daml Sandbox, backend, and frontend all run on your machine for free. The one exception: data is stored in Google Firestore (project `ltc-hack2026-team25`, database `he-man`), so you need `gcloud` installed and logged into an account with access to that project (see step 1b).
 
 ---
 
@@ -33,6 +33,22 @@ node --version   # v18+ (any recent LTS is fine)
 java -version    # 17.x
 daml version     # 2.10.x
 ```
+
+### 1b. Google Cloud SDK (needed on every OS, for Firestore)
+
+```bash
+brew install --cask google-cloud-sdk        # macOS
+# Windows: download the installer from https://cloud.google.com/sdk/docs/install
+```
+
+Then log in once (opens a browser):
+
+```bash
+gcloud auth login
+gcloud config set project ltc-hack2026-team25
+```
+
+The backend calls `gcloud auth print-access-token` under the hood to talk to Firestore, so this login just needs to have happened once on your machine — no key file, no service account.
 
 ### Windows 10
 
@@ -81,6 +97,8 @@ npm run dev
 
 API runs at `http://localhost:3000/api/v1`. Check `http://localhost:3000/api/v1/health`.
 
+**Every endpoint, browsable and testable:** open `http://localhost:3000/api-docs` for an interactive Swagger UI page — every route, request body, and response, with a "Try it out" button. Log in via `/auth/login` first, click "Authorize" at the top, paste in the returned token, and you can then try the protected endpoints (create order, report delivery) directly from the page.
+
 ### Optional: seed synthetic demo data
 
 To open the dashboard already populated with sample purchase orders (2 pending, 2 settled, 1 refunded) instead of starting empty:
@@ -90,7 +108,7 @@ cd backend
 npm run seed
 ```
 
-**Run this before `npm run dev` starts the backend** (or restart the backend afterward). The backend keeps its data store in memory and only writes back to `backend/data/db.json` — it doesn't notice the file changing underneath it. Seeding while the backend is already running will look like it worked (the script writes to disk fine), but the next thing the running backend writes will overwrite your seeded data with its stale in-memory copy.
+Data lives in Firestore, not the backend process, so the seed script and the running backend both read/write the same documents directly — no restart needed either way.
 
 ## 4. Run the frontend
 
@@ -121,7 +139,7 @@ This runs the Daml Sandbox, backend, and frontend together with color-coded log 
 
 ## Notes
 
-- Data (orders/escrows/wallets) persists to `backend/data/db.json` — delete that file to reset to a clean demo state.
+- Data (orders/escrows/wallets/shipments/activities) persists in Google Firestore (project `ltc-hack2026-team25`, database `he-man`) — see `GCP_PROJECT_ID`/`FIRESTORE_DATABASE_ID` in `.env.example`. The backend authenticates using your own `gcloud auth login` session (run that once), not a service account key.
 - The Core Banking System (fund hold / settlement / release) and Logistics Oracle (delivery status) are **simulated inside the backend** (`backend/src/services/cbs.service.ts`, `oracle.service.ts`) — there's no real bank or courier API to integrate with for the hackathon. The escrow contract itself is real (Daml/Canton).
 - All scripts use Node's cross-platform `path`/`fs` APIs, not shell-specific syntax, so `npm run dev` behaves the same in zsh, Git Bash, and PowerShell.
 - Delivery status can be reported two ways: a human clicking Delivered/Failed on the **Logistics** page (only visible to a logged-in **Logistics** account — see below), or `POST /api/v1/oracle/webhook` with header `X-Webhook-Secret` (see `.env.example`) — representing what a real courier/logistics system would call automatically. Both drive the same settlement logic.

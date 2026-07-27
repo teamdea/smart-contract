@@ -12,5 +12,8 @@ router.post("/", requireRole("Buyer"), orderController.create);
 // Logistics-only: the independent delivery-status verifier, never the
 // supplier being paid - see requireRole's comment for why.
 router.post("/:id/delivery", requireRole("Logistics"), orderController.reportDelivery);
+// Supplier-only: only the order's own supplier can confirm it - ownership
+// is checked again inside order.service.ts.
+router.post("/:id/confirm", requireRole("Supplier"), orderController.confirm);
 
 export default router;

@@ -30,6 +30,7 @@ export interface Order {
   deliverySla: string;
   buyerWalletId: string;
   supplierWalletId: string;
+  fulfillmentStatus: "AwaitingConfirmation" | "Confirmed";
 }
 
 export interface EscrowRecord {
@@ -157,6 +158,13 @@ export async function updateDeliveryStatus(
   status: "Delivered" | "Failed"
 ): Promise<Order> {
   const res = await client.post<ApiEnvelope<Order>>(`/orders/${orderId}/delivery`, { status });
+  return res.data.data;
+}
+
+// Supplier-only: acknowledges receipt of the order. This is also what hands
+// the order to Logistics (shown there as "In Transit").
+export async function confirmOrder(orderId: string): Promise<Order> {
+  const res = await client.post<ApiEnvelope<Order>>(`/orders/${orderId}/confirm`);
   return res.data.data;
 }
 
