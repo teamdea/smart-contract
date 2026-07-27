@@ -1,0 +1,118 @@
+module Escrow where
+
+import Daml.Script
+
+-- | Mirrors the escrow states from the sequence diagram:
+-- Created (step 7) -> Settled (success path, steps 9-15)
+--                  -> Refunded (failure path, steps 9b-15b)
+data EscrowStatus
+  = EscrowCreated
+  | Settled
+  | Refunded
+  deriving (Eq, Show)
+
+-- | The escrow contract recorded on the ledger.
+-- `operator` is the backend service party (acts on behalf of the platform /
+-- Core Banking System integration); buyer and supplier are observers so they
+-- can see contract state but the operator drives the workflow, matching a
+-- single backend-service deployment for the hackathon demo.
+template Escrow
+  with
+    operator        : Party
+    buyer           : Party
+    supplier        : Party
+    orderId         : Text
+    escrowId        : Text
+    holdReferenceId : Text
+    buyerWalletId   : Text
+    supplierWalletId : Text
+    orderAmount     : Decimal
+    marginAmount    : Decimal
+    deliverySla     : Text
+    status          : EscrowStatus
+  where
+    signatory operator
+    observer buyer, supplier
+
+    ensure orderAmount > 0.0 && marginAmount > 0.0 && marginAmount <= orderAmount
+
+    key (operator, escrowId) : (Party, Text)
+    maintainer key._1
+
+    -- Success path: Delivery Confirmed event -> settle (release margin to supplier,
+    -- debit held 90% from buyer). The actual money movement happens in the
+    -- backend's CBS simulator; this choice records the contract's final state.
+    choice ConfirmDelivery : ContractId Escrow
+      controller operator
+      do
+        assertMsg "Escrow must be in Created state to confirm delivery" (status == EscrowCreated)
+        create this with status = Settled
+
+    -- Failure path: Delivery Failed / Grace Period Expired -> refund margin to buyer,
+    -- release the fund hold on the remaining 90%.
+    choice FailOrExpireDelivery : ContractId Escrow
+      controller operator
+      do
+        assertMsg "Escrow must be in Created state to fail/expire" (status == EscrowCreated)
+        create this with status = Refunded
+
+-- Used as daml.yaml's init-script when `daml start` boots the sandbox, and
+-- doubles as the success-path test exercised by `daml test`.
+setup : Script ()
+setup = script do
+  operator <- allocateParty "Operator"
+  buyer <- allocateParty "Buyer"
+  supplier <- allocateParty "Supplier"
+
+  escrowCid <- submit operator do
+    createCmd Escrow with
+      operator
+      buyer
+      supplier
+      orderId = "ORD-INIT-SMOKE-TEST"
+      escrowId = "ESC-INIT-SMOKE-TEST"
+      holdReferenceId = "HOLD-INIT-SMOKE-TEST"
+      buyerWalletId = "WALLET-INIT-SMOKE-TEST-BUYER"
+      supplierWalletId = "WALLET-INIT-SMOKE-TEST-SUPPLIER"
+      orderAmount = 10000000.0
+      marginAmount = 1000000.0
+      deliverySla = "2026-08-01"
+      status = EscrowCreated
+
+  settledCid <- submit operator do
+    exerciseCmd escrowCid ConfirmDelivery
+
+  Some settled <- queryContractId operator settledCid
+  assertMsg "status should be Settled after ConfirmDelivery" (settled.status == Settled)
+
+  pure ()
+
+-- Failure-path test exercised by `daml test`.
+testRefundPath : Script ()
+testRefundPath = script do
+  operator <- allocateParty "Operator"
+  buyer <- allocateParty "Buyer"
+  supplier <- allocateParty "Supplier"
+
+  escrowCid <- submit operator do
+    createCmd Escrow with
+      operator
+      buyer
+      supplier
+      orderId = "ORD-2002"
+      escrowId = "ESC-2002"
+      holdReferenceId = "HOLD-2002"
+      buyerWalletId = "WALLET-TEST-BUYER-2002"
+      supplierWalletId = "WALLET-TEST-SUPPLIER-2002"
+      orderAmount = 5000000.0
+      marginAmount = 500000.0
+      deliverySla = "2026-08-05"
+      status = EscrowCreated
+
+  refundedCid <- submit operator do
+    exerciseCmd escrowCid FailOrExpireDelivery
+
+  Some refunded <- queryContractId operator refundedCid
+  assertMsg "status should be Refunded after FailOrExpireDelivery" (refunded.status == Refunded)
+
+  pure ()

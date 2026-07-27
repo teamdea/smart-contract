@@ -5,6 +5,10 @@ import CreateOrder from "./pages/CreateOrder";
 import Orders from "./pages/Orders";
 import Reports from "./pages/Reports";
 import Settlement from "./pages/Settlement";
+import Logistics from "./pages/Logistics";
+import Wallets from "./pages/Wallets";
+import Login from "./pages/Login";
+import RequireAuth from "./components/RequireAuth";
 
 function App() {
   return (
@@ -14,29 +18,46 @@ function App() {
         element={<Navigate replace to="/dashboard" />}
       />
 
+      <Route path="/login" element={<Login />} />
+
       <Route
         path="/dashboard"
-        element={<Dashboard />}
+        element={<RequireAuth><Dashboard /></RequireAuth>}
       />
 
       <Route
         path="/create-order"
-        element={<CreateOrder />}
+        element={<RequireAuth><CreateOrder /></RequireAuth>}
       />
 
       <Route
         path="/orders"
-        element={<Orders />}
+        element={<RequireAuth><Orders /></RequireAuth>}
       />
 
       <Route
         path="/settlement"
-        element={<Settlement />}
+        element={<RequireAuth><Settlement /></RequireAuth>}
+      />
+
+      <Route
+        path="/settlement/:orderId"
+        element={<RequireAuth><Settlement /></RequireAuth>}
+      />
+
+      <Route
+        path="/logistics"
+        element={<RequireAuth><Logistics /></RequireAuth>}
+      />
+
+      <Route
+        path="/wallets"
+        element={<RequireAuth><Wallets /></RequireAuth>}
       />
 
       <Route
         path="/reports"
-        element={<Reports />}
+        element={<RequireAuth><Reports /></RequireAuth>}
       />
     </Routes>
   );

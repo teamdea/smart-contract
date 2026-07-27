@@ -1,0 +1,15 @@
+{
+  "name": "programmable-money-hackathon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root orchestration for the Daml sandbox, backend, and frontend dev servers. See SETUP.md.",
+  "scripts": {
+    "dev": "concurrently -n daml,backend,frontend -c blue,green,magenta \"npm:dev:daml\" \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:daml": "cd daml && daml start",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

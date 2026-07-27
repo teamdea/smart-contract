@@ -9,9 +9,13 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 
-import { recentOrders } from "../data/dashboardData";
+import type { Order } from "../services/api";
 
-function OrdersTable() {
+interface OrdersTableProps {
+  orders: Order[];
+}
+
+function OrdersTable({ orders }: OrdersTableProps) {
   return (
     <Paper
       elevation={2}
@@ -50,7 +54,7 @@ function OrdersTable() {
 
           <TableBody>
 
-            {recentOrders.map((order) => (
+            {orders.map((order) => (
 
               <TableRow key={order.id}>
 
@@ -59,19 +63,19 @@ function OrdersTable() {
                 </TableCell>
 
                 <TableCell>
-                  {order.customer}
+                  {order.buyer}
                 </TableCell>
 
                 <TableCell>
-                  {order.amount}
+                  ₹{order.amount.toLocaleString("en-IN")}
                 </TableCell>
 
                 <TableCell>
 
                   <Chip
-                    label={order.escrow}
+                    label={order.status === "Active" ? "Active" : "Released"}
                     color={
-                      order.escrow === "Active"
+                      order.status === "Active"
                         ? "success"
                         : "warning"
                     }
@@ -85,11 +89,13 @@ function OrdersTable() {
                   <Chip
                     label={order.settlement}
                     color={
-                      order.settlement === "Completed"
+                      order.settlement === "Released"
                         ? "success"
                         : order.settlement === "In Progress"
                           ? "info"
-                          : "warning"
+                          : order.settlement === "Refunded"
+                            ? "error"
+                            : "warning"
                     }
                     size="small"
                   />

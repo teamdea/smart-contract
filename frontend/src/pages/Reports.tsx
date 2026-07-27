@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -12,15 +14,28 @@ import Typography from "@mui/material/Typography";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import SummaryCard from "../components/SummaryCard";
-
-const recentTransactions = [
-  { id: "ORD-1001", amount: "₹1,00,00,000", status: "Pending" },
-  { id: "ORD-1002", amount: "₹50,00,000", status: "Completed" },
-  { id: "ORD-1003", amount: "₹25,00,000", status: "Active" },
-  { id: "ORD-1004", amount: "₹75,00,000", status: "Completed" },
-];
+import { getDashboardSummary, type DashboardSummary } from "../services/api";
 
 function Reports() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  useEffect(() => {
+    getDashboardSummary()
+      .then(setSummary)
+      .catch(() => setSummary(null));
+  }, []);
+
+  const totalOrders = summary?.summaryCards[0]?.value ?? "0";
+  const settlementValue = summary?.summaryCards[2]?.value ?? "₹0.00 L";
+  const escrowBalance = summary?.reports.escrowBalance ?? "₹0.00 L";
+  const successRate = summary?.reports.successRate ?? 0;
+  const metrics = summary?.reports.metrics ?? {
+    settlementCompletion: 0,
+    smartContractExecution: 0,
+    oracleVerification: 0,
+  };
+  const recentOrders = summary?.recentOrders ?? [];
+
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar />
@@ -51,19 +66,19 @@ function Reports() {
 
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <SummaryCard title="Total Orders" value="124" />
+            <SummaryCard title="Total Orders" value={totalOrders} />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <SummaryCard title="Settlement Value" value="₹18.75 Cr" />
+            <SummaryCard title="Settlement Value" value={settlementValue} />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <SummaryCard title="Escrow Balance" value="₹2.40 Cr" />
+            <SummaryCard title="Escrow Balance" value={escrowBalance} />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <SummaryCard title="Success Rate" value="98%" />
+            <SummaryCard title="Success Rate" value={`${successRate}%`} />
           </Grid>
         </Grid>
 
@@ -76,13 +91,13 @@ function Reports() {
                 </Typography>
 
                 <Typography gutterBottom>Settlement Completion</Typography>
-                <LinearProgress variant="determinate" value={92} sx={{ mb: 3 }} />
+                <LinearProgress variant="determinate" value={metrics.settlementCompletion} sx={{ mb: 3 }} />
 
                 <Typography gutterBottom>Smart Contract Execution</Typography>
-                <LinearProgress variant="determinate" value={99} sx={{ mb: 3 }} />
+                <LinearProgress variant="determinate" value={metrics.smartContractExecution} sx={{ mb: 3 }} />
 
                 <Typography gutterBottom>Oracle Verification</Typography>
-                <LinearProgress variant="determinate" value={87} />
+                <LinearProgress variant="determinate" value={metrics.oracleVerification} />
               </CardContent>
             </Card>
           </Grid>
@@ -95,14 +110,14 @@ function Reports() {
                 </Typography>
 
                 <List>
-                  {recentTransactions.map((item) => (
-                    <ListItem key={item.id} divider>
+                  {recentOrders.map((order) => (
+                    <ListItem key={order.id} divider>
                       <ListItemText
-                        primary={item.id}
-                        secondary={item.amount}
+                        primary={order.id}
+                        secondary={`₹${order.amount.toLocaleString("en-IN")}`}
                       />
                       <Typography variant="body2">
-                        {item.status}
+                        {order.status}
                       </Typography>
                     </ListItem>
                   ))}

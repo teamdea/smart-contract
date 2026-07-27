@@ -1,14 +1,28 @@
+import { useNavigate } from "react-router-dom";
+
 import AppBar from "@mui/material/AppBar";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
 import Toolbar from "@mui/material/Toolbar";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import LogoutIcon from "@mui/icons-material/Logout";
 
 import teamDeaLogo from "../assets/teamdea-logo.png";
+import { getSession, clearSession } from "../services/session";
 
 const DRAWER_WIDTH = 295;
 
 function Navbar() {
+  const navigate = useNavigate();
+  const session = getSession();
+
+  function handleLogout() {
+    clearSession();
+    navigate("/login");
+  }
+
   return (
     <AppBar
       position="fixed"
@@ -84,11 +98,11 @@ function Navbar() {
                 fontWeight: 700,
               }}
             >
-              Administrator
+              {session?.ownerName ?? "Guest"}
             </Typography>
 
             <Typography variant="body2">
-              Demo User
+              {session ? `${session.role} · ${session.walletId}` : "Not signed in"}
             </Typography>
           </Box>
 
@@ -97,8 +111,16 @@ function Navbar() {
               bgcolor: "#66BB6A",
             }}
           >
-            KS
+            {(session?.ownerName ?? "?").slice(0, 2).toUpperCase()}
           </Avatar>
+
+          {session && (
+            <Tooltip title="Logout">
+              <IconButton color="inherit" onClick={handleLogout}>
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       </Toolbar>
     </AppBar>
