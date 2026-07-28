@@ -7,11 +7,13 @@
 // the escrow.
 export type WalletRole = "Buyer" | "Supplier" | "Logistics";
 
-// A simulated bank account behind the CBS (Core Banking System) box in the
-// architecture diagram. `availableBalance` is spendable/receivable now;
-// `heldBalance` is money placed under a lien (step 4 in the diagram: "Request
-// Fund Hold for 90% of Amount") - frozen but not yet actually debited.
-// Logistics accounts never move money - both fields stay 0 for that role.
+// Identity and credentials only - this is what's actually stored. A
+// wallet's real spendable balance is not stored here: it lives on the
+// Canton ledger as a CashHolding contract (see
+// ledger/ledger.service.ts's getCashHolding), fetched fresh wherever a
+// balance needs to be shown (see wallet.controller.ts's verifyAccount,
+// which also derives held/escrowed amounts from the Buyer's own Order
+// records for display).
 //
 // Two separate credentials, for two separate purposes:
 // - `pin` logs you into the platform (proves "I am this wallet").
@@ -23,8 +25,6 @@ export interface Wallet {
   walletId: string;
   ownerName: string;
   role: WalletRole;
-  availableBalance: number;
-  heldBalance: number;
   pin: string;
   accountNumber: string;
 }

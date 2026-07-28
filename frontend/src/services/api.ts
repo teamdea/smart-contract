@@ -30,6 +30,13 @@ export interface Order {
   deliverySla: string;
   buyerWalletId: string;
   supplierWalletId: string;
+  fulfillmentStatus:
+    | "AwaitingConfirmation"
+    | "Confirmed"
+    | "AwaitingBuyerVerification"
+    | "ProductVerified"
+    | "ProductFailed"
+    | "DeliveryFailed";
 }
 
 export interface EscrowRecord {
@@ -44,12 +51,21 @@ export interface EscrowRecord {
   updatedAt: string;
 }
 
+export interface HeldOrder {
+  orderId: string;
+  sellerName: string;
+  heldAmount: number;
+}
+
 export interface Wallet {
   walletId: string;
   ownerName: string;
   role: "Buyer" | "Supplier" | "Logistics";
   availableBalance: number;
-  heldBalance: number;
+  // Buyer responses only - Supplier/Logistics wallets never hold funds.
+  heldBalance?: number;
+  escrowedBalance?: number;
+  heldOrders?: HeldOrder[];
 }
 
 export interface WalletIdentity {
@@ -57,6 +73,16 @@ export interface WalletIdentity {
   ownerName: string;
   role: "Buyer" | "Supplier" | "Logistics";
   token: string;
+}
+
+export interface Product {
+  id: string;
+  sellerWalletId: string;
+  category: string;
+  name: string;
+  price: number;
+  escrowMarginPercent: number;
+  createdAt: string;
 }
 
 export interface SummaryCardData {
@@ -95,10 +121,11 @@ export interface DashboardSummary {
 export interface CreateOrderInput {
   // buyerWalletId is not sent - the backend derives it from the
   // authenticated session (requireRole("Buyer")), so a logged-in buyer
-  // can't create an order impersonating another one.
+  // can't create an order impersonating another one. orderAmount and the
+  // escrow margin aren't sent either - the backend derives both from
+  // productId (see product.service.ts), so they can't be tampered with.
   supplierWalletId: string;
-  orderAmount: number;
-  escrowPercent: number;
+  productId: string;
 }
 
 export interface RegisterInput {
@@ -126,9 +153,36 @@ export async function login(walletId: string, pin: string): Promise<WalletIdenti
 }
 
 // Identity-only directory (no balances) - backs the Supplier dropdown on
-// Create Order, so a buyer picks a registered supplier by name.
-export async function listWalletsByRole(role: "Buyer" | "Supplier"): Promise<WalletIdentity[]> {
-  const res = await client.get<ApiEnvelope<WalletIdentity[]>>("/wallets", { params: { role } });
+// Create Order, so a buyer picks a registered supplier by name. Optionally
+// narrowed to Suppliers selling in a specific category.
+export async function listWalletsByRole(
+  role: "Buyer" | "Supplier",
+  category?: string
+): Promise<WalletIdentity[]> {
+  const res = await client.get<ApiEnvelope<WalletIdentity[]>>("/wallets", { params: { role, category } });
+  return res.data.data;
+}
+
+// Public: a seller's product catalog, used both on the Seller's own "My
+// Products" page and by Buyers browsing that seller on Create Order.
+// Optionally narrowed to one category - a seller can list products across
+// more than one category, so Create Order passes the category the buyer
+// already picked rather than showing the seller's whole catalog mixed together.
+export async function listProductsBySeller(sellerWalletId: string, category?: string): Promise<Product[]> {
+  const res = await client.get<ApiEnvelope<Product[]>>("/products", { params: { sellerWalletId, category } });
+  return res.data.data;
+}
+
+export interface AddProductInput {
+  category: string;
+  name: string;
+  price: number;
+  escrowMarginPercent: number;
+}
+
+// Supplier-only: adds to the caller's own catalog.
+export async function addProduct(input: AddProductInput): Promise<Product> {
+  const res = await client.post<ApiEnvelope<Product>>("/products", input);
   return res.data.data;
 }
 
@@ -157,6 +211,22 @@ export async function updateDeliveryStatus(
   status: "Delivered" | "Failed"
 ): Promise<Order> {
   const res = await client.post<ApiEnvelope<Order>>(`/orders/${orderId}/delivery`, { status });
+  return res.data.data;
+}
+
+// Supplier-only: acknowledges receipt of the order. This is also what hands
+// the order to Logistics (shown there as "In Transit").
+export async function confirmOrder(orderId: string): Promise<Order> {
+  const res = await client.post<ApiEnvelope<Order>>(`/orders/${orderId}/confirm`);
+  return res.data.data;
+}
+
+// Buyer-only: only callable once Logistics has reported Delivered. This is
+// what actually releases funds to the supplier (verified) or refunds the
+// buyer (not verified) - Logistics reporting Delivered on its own no
+// longer moves any money.
+export async function verifyDelivery(orderId: string, verified: boolean): Promise<Order> {
+  const res = await client.post<ApiEnvelope<Order>>(`/orders/${orderId}/verify-delivery`, { verified });
   return res.data.data;
 }
 

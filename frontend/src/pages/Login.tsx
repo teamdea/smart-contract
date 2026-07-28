@@ -6,21 +6,38 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 
 import { login, register } from "../services/api";
 import { setSession } from "../services/session";
+import { apiErrorMessage } from "../utils/errors";
 
-function generateWalletId(role: "BUYER" | "SUPPLIER" | "LOGISTICS"): string {
-  return `WALLET-${role}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+type FormRole = "Buyer" | "Supplier";
+type View = "roleSelect" | FormRole;
+
+// The seeded Logistics account (see backend/scripts/seed.ts) - Logistics has
+// no login screen of its own, so clicking the Logistics button on the
+// landing screen signs straight into this fixed identity. The backend's
+// requireRole("Logistics") check on delivery-status endpoints still runs
+// for real - this just means the user never sees a login form for it.
+const LOGISTICS_WALLET_ID = "WALLET-LOGISTICS-MAIN01";
+const LOGISTICS_PIN = "333333";
+
+function generateWalletId(role: FormRole): string {
+  const prefix = role === "Buyer" ? "BUYER" : "SUPPLIER";
+  return `WALLET-${prefix}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
 function Login() {
   const navigate = useNavigate();
+  const [view, setView] = useState<View>("roleSelect");
   const [mode, setMode] = useState<"login" | "register">("login");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,16 +48,43 @@ function Login() {
 
   // Register fields
   const [ownerName, setOwnerName] = useState("");
-  const [role, setRole] = useState<"Buyer" | "Supplier" | "Logistics">("Buyer");
-  const [walletId, setWalletId] = useState(() => generateWalletId("BUYER"));
+  const [walletId, setWalletId] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
 
-  function handleRoleChange(newRole: "Buyer" | "Supplier" | "Logistics") {
-    setRole(newRole);
-    const prefix = newRole === "Buyer" ? "BUYER" : newRole === "Supplier" ? "SUPPLIER" : "LOGISTICS";
-    setWalletId(generateWalletId(prefix));
+  function openForm(role: FormRole) {
+    setView(role);
+    setMode("login");
+    setError(null);
+    setLoginWalletId("");
+    setLoginPin("");
+    setOwnerName("");
+    setWalletId(generateWalletId(role));
+    setPin("");
+    setConfirmPin("");
+    setAccountNumber("");
+  }
+
+  function goBack() {
+    setView("roleSelect");
+    setError(null);
+  }
+
+  async function handleLogisticsClick() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      const session = await login(LOGISTICS_WALLET_ID, LOGISTICS_PIN);
+      setSession(session);
+      navigate("/logistics");
+    } catch {
+      setError(
+        "Logistics demo account isn't set up on this backend yet - run \"npm run seed\" in backend/ first."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleLogin() {
@@ -57,7 +101,7 @@ function Login() {
     }
   }
 
-  async function handleRegister() {
+  async function handleRegister(role: FormRole) {
     setError(null);
     if (pin !== confirmPin) {
       setError("PIN and Confirm PIN don't match.");
@@ -79,21 +123,13 @@ function Login() {
       setSession(session);
       navigate("/dashboard");
     } catch (err) {
-      const message =
-        (axiosErrorMessage(err)) ?? "Registration failed - that Wallet ID may already be taken.";
-      setError(message);
+      setError(apiErrorMessage(err, "Registration failed - that Wallet ID may already be taken."));
     } finally {
       setSubmitting(false);
     }
   }
 
-  function axiosErrorMessage(err: unknown): string | null {
-    if (err && typeof err === "object" && "response" in err) {
-      const response = (err as { response?: { data?: { message?: string } } }).response;
-      return response?.data?.message ?? null;
-    }
-    return null;
-  }
+  const roleLabel = view === "Supplier" ? "Seller" : view;
 
   return (
     <Box
@@ -102,108 +138,157 @@ function Login() {
         alignItems: "center",
         justifyContent: "center",
         minHeight: "100vh",
-        bgcolor: "#f4f6f8",
+        // /login-bg.jpg is served straight from frontend/public - drop the
+        // file there (no build step needed to pick it up). The gradient
+        // underneath is what actually renders if that file is missing, and
+        // also darkens the photo so the white card stays readable on top of it.
+        backgroundImage:
+          "linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(30,58,138,0.75) 55%, rgba(37,99,235,0.7) 100%), url(/login-bg.jpg)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundColor: "#0f172a",
         p: 2,
       }}
     >
-      <Card sx={{ maxWidth: 480, width: "100%", borderRadius: 3 }}>
+      <Card sx={{ maxWidth: 460, width: "100%", borderRadius: 3, boxShadow: 12 }}>
         <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-            Programmable Money & Smart Escrow
-          </Typography>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
-            Sign in with your Wallet ID and PIN, or register a new wallet.
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, lineHeight: 1.3 }}>
+            Smart Escrow - A Conditional Payment Settlement using Programmable Money
           </Typography>
 
-          <Tabs value={mode} onChange={(_e, v) => { setMode(v); setError(null); }} sx={{ mb: 3 }}>
-            <Tab label="Login" value="login" />
-            <Tab label="Register" value="register" />
-          </Tabs>
+          {view === "roleSelect" ? (
+            <>
+              <Typography color="text.secondary" sx={{ mb: 3 }}>
+                Continue as:
+              </Typography>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+              {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          {mode === "login" ? (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Wallet ID"
-                value={loginWalletId}
-                onChange={(e) => setLoginWalletId(e.target.value)}
-              />
-              <TextField
-                fullWidth
-                type="password"
-                label="PIN"
-                value={loginPin}
-                onChange={(e) => setLoginPin(e.target.value)}
-              />
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleLogin}
-                disabled={submitting || !loginWalletId.trim() || !loginPin.trim()}
-              >
-                {submitting ? "Signing in..." : "Login"}
-              </Button>
-            </Box>
+              <Stack spacing={1.5}>
+                <Button
+                  fullWidth
+                  size="large"
+                  variant="contained"
+                  startIcon={<ShoppingCartIcon />}
+                  onClick={() => openForm("Buyer")}
+                >
+                  Buyer
+                </Button>
+                <Button
+                  fullWidth
+                  size="large"
+                  variant="contained"
+                  startIcon={<StorefrontIcon />}
+                  onClick={() => openForm("Supplier")}
+                >
+                  Seller
+                </Button>
+                <Button
+                  fullWidth
+                  size="large"
+                  variant="outlined"
+                  startIcon={<LocalShippingIcon />}
+                  disabled={submitting}
+                  onClick={handleLogisticsClick}
+                >
+                  {submitting ? "Opening Logistics..." : "Logistics"}
+                </Button>
+              </Stack>
+
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+                Logistics has no login - it opens directly, since it's an independent
+                delivery-status verifier rather than a financial party.
+              </Typography>
+            </>
           ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <TextField
-                select
-                fullWidth
-                label="I am a"
-                value={role}
-                onChange={(e) => handleRoleChange(e.target.value as "Buyer" | "Supplier" | "Logistics")}
-              >
-                <MenuItem value="Buyer">Buyer (I create purchase orders)</MenuItem>
-                <MenuItem value="Supplier">Supplier (I receive orders and ship goods)</MenuItem>
-                <MenuItem value="Logistics">
-                  Logistics (I independently confirm delivery status - not the buyer or supplier)
-                </MenuItem>
-              </TextField>
-              <TextField
-                fullWidth
-                label="Company / Owner Name"
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
-              />
-              <TextField
-                fullWidth
-                label="Wallet ID"
-                value={walletId}
-                onChange={(e) => setWalletId(e.target.value)}
-                helperText="Auto-generated - you can edit it"
-              />
-              <TextField
-                fullWidth
-                type="password"
-                label="Choose a PIN"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-              />
-              <TextField
-                fullWidth
-                type="password"
-                label="Confirm PIN"
-                value={confirmPin}
-                onChange={(e) => setConfirmPin(e.target.value)}
-              />
-              <TextField
-                fullWidth
-                label="Account Number"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                helperText="A second credential, separate from your PIN - you'll need this again to view your balance on the Wallets page"
-              />
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleRegister}
-                disabled={submitting}
-              >
-                {submitting ? "Registering..." : "Register & Continue"}
+            <>
+              <Typography color="text.secondary" sx={{ mb: 3 }}>
+                Signed in as <strong>{roleLabel}</strong>. Sign in with your Wallet ID and PIN, or
+                register a new wallet.
+              </Typography>
+
+              <Tabs value={mode} onChange={(_e, v) => { setMode(v); setError(null); }} sx={{ mb: 3 }}>
+                <Tab label="Login" value="login" />
+                <Tab label="Register" value="register" />
+              </Tabs>
+
+              {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+              {mode === "login" ? (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Wallet ID"
+                    value={loginWalletId}
+                    onChange={(e) => setLoginWalletId(e.target.value)}
+                  />
+                  <TextField
+                    fullWidth
+                    type="password"
+                    label="PIN"
+                    value={loginPin}
+                    onChange={(e) => setLoginPin(e.target.value)}
+                  />
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={handleLogin}
+                    disabled={submitting || !loginWalletId.trim() || !loginPin.trim()}
+                  >
+                    {submitting ? "Signing in..." : "Login"}
+                  </Button>
+                </Box>
+              ) : (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Company / Owner Name"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Wallet ID"
+                    value={walletId}
+                    onChange={(e) => setWalletId(e.target.value)}
+                    helperText="Auto-generated - you can edit it"
+                  />
+                  <TextField
+                    fullWidth
+                    type="password"
+                    label="Choose a PIN"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                  />
+                  <TextField
+                    fullWidth
+                    type="password"
+                    label="Confirm PIN"
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value)}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Account Number"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    helperText="A second credential, separate from your PIN - you'll need this again to view your balance on the Wallets page"
+                  />
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={() => handleRegister(view)}
+                    disabled={submitting}
+                  >
+                    {submitting ? "Registering..." : "Register & Continue"}
+                  </Button>
+                </Box>
+              )}
+
+              <Button sx={{ mt: 2 }} onClick={goBack}>
+                &larr; Back
               </Button>
-            </Box>
+            </>
           )}
         </CardContent>
       </Card>

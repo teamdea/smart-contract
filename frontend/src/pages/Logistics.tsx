@@ -20,6 +20,20 @@ import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { listOrders, updateDeliveryStatus, type Order } from "../services/api";
 import { getSession } from "../services/session";
+import { apiErrorMessage } from "../utils/errors";
+
+// ProductVerified/ProductFailed/DeliveryFailed orders never actually show up
+// in this table - Logistics only sees still-Active orders (see
+// pendingOrders below), and all three of those are terminal/resolved
+// states. Still needed here for TypeScript's Record exhaustiveness.
+const FULFILLMENT_CHIP: Record<Order["fulfillmentStatus"], { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
+  AwaitingConfirmation: { label: "Awaiting Seller Confirmation", color: "default" },
+  Confirmed: { label: "In Transit", color: "warning" },
+  AwaitingBuyerVerification: { label: "Delivered - Awaiting Buyer Verification", color: "info" },
+  ProductVerified: { label: "Product Verified", color: "success" },
+  ProductFailed: { label: "Product Failed", color: "error" },
+  DeliveryFailed: { label: "Delivery Failed", color: "error" },
+};
 
 // This is the independent Logistics Oracle's screen (architecture diagram
 // box 5: "Trusted Delivery Tracker") - the only place delivery status is
@@ -57,12 +71,12 @@ function Logistics() {
       await updateDeliveryStatus(order.id, status);
       setToast(
         status === "Delivered"
-          ? `${order.id} marked delivered — escrow released to ${order.merchant}.`
+          ? `${order.id} marked delivered — awaiting ${order.buyer}'s verification before funds move.`
           : `${order.id} marked failed — escrow refunded to ${order.buyer}.`
       );
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update delivery status");
+      setError(apiErrorMessage(err, "Failed to update delivery status"));
     } finally {
       setBusyOrderId(null);
     }
@@ -108,9 +122,11 @@ function Logistics() {
         </Typography>
 
         <Typography color="text.secondary" sx={{ mb: 4 }}>
-          Independent logistics/courier view — not the buyer or the supplier. Reporting delivery
-          status here is what triggers escrow settlement (funds released) or refund (funds
-          returned to the buyer) on the ledger.
+          Independent logistics/courier view — not the buyer or the supplier. An order shows
+          "In Transit" once its Supplier confirms it. Marking a shipment Failed (never arrived)
+          refunds the buyer immediately. Marking it Delivered does not release funds by itself -
+          it only confirms the package physically arrived; the Buyer still has to verify the
+          product itself before the supplier gets paid.
         </Typography>
 
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -140,40 +156,44 @@ function Logistics() {
                 </TableRow>
               )}
 
-              {pendingOrders.map((order) => (
-                <TableRow key={order.id} hover>
-                  <TableCell>{order.id}</TableCell>
-                  <TableCell>{order.buyer}</TableCell>
-                  <TableCell>{order.merchant}</TableCell>
-                  <TableCell align="right">₹{order.amount.toLocaleString("en-IN")}</TableCell>
-                  <TableCell>{order.deliverySla}</TableCell>
-                  <TableCell>
-                    <Chip label="Awaiting Delivery" color="warning" size="small" />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="success"
-                        disabled={busyOrderId === order.id}
-                        onClick={() => handleUpdate(order, "Delivered")}
-                      >
-                        Mark Delivered
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        disabled={busyOrderId === order.id}
-                        onClick={() => handleUpdate(order, "Failed")}
-                      >
-                        Mark Failed
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {pendingOrders.map((order) => {
+                const shipped = order.fulfillmentStatus === "Confirmed";
+                const chip = FULFILLMENT_CHIP[order.fulfillmentStatus];
+                return (
+                  <TableRow key={order.id} hover>
+                    <TableCell>{order.id}</TableCell>
+                    <TableCell>{order.buyer}</TableCell>
+                    <TableCell>{order.merchant}</TableCell>
+                    <TableCell align="right">₹{order.amount.toLocaleString("en-IN")}</TableCell>
+                    <TableCell>{order.deliverySla}</TableCell>
+                    <TableCell>
+                      <Chip label={chip.label} color={chip.color} size="small" />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          disabled={!shipped || busyOrderId === order.id}
+                          onClick={() => handleUpdate(order, "Delivered")}
+                        >
+                          Mark Delivered
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          disabled={!shipped || busyOrderId === order.id}
+                          onClick={() => handleUpdate(order, "Failed")}
+                        >
+                          Mark Failed
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

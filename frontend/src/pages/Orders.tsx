@@ -7,6 +7,8 @@ import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Alert from "@mui/material/Alert";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -19,19 +21,46 @@ import Typography from "@mui/material/Typography";
 
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import { listOrders, type Order } from "../services/api";
+import { confirmOrder, listOrders, verifyDelivery, type Order } from "../services/api";
 import { getOrderLifecycleState, getOrderLifecycleColor } from "../utils/orderState";
+import { getSession } from "../services/session";
+import { apiErrorMessage } from "../utils/errors";
+
+const FULFILLMENT_LABELS: Record<Order["fulfillmentStatus"], string> = {
+  AwaitingConfirmation: "Awaiting Confirmation",
+  Confirmed: "Order Confirmed",
+  AwaitingBuyerVerification: "Awaiting Your Verification",
+  ProductVerified: "Product Verified",
+  ProductFailed: "Product Failed",
+  DeliveryFailed: "Delivery Failed",
+};
+
+const FULFILLMENT_COLORS: Record<Order["fulfillmentStatus"], "default" | "info" | "success" | "error"> = {
+  AwaitingConfirmation: "default",
+  Confirmed: "info",
+  AwaitingBuyerVerification: "info",
+  ProductVerified: "success",
+  ProductFailed: "error",
+  DeliveryFailed: "error",
+};
 
 function Orders() {
   const navigate = useNavigate();
+  const session = getSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    listOrders()
+  function refresh() {
+    return listOrders()
       .then(setOrders)
       .catch(() => setOrders([]));
+  }
+
+  useEffect(() => {
+    refresh();
   }, []);
 
   const filteredOrders = useMemo(() => {
@@ -63,6 +92,50 @@ function Orders() {
     }
   };
 
+  // Only the order's own Supplier gets the Confirm Order action, and only
+  // the order's own Buyer gets the Product Verified/Failed actions - the
+  // backend re-checks both ownerships too, this just avoids showing a
+  // button that would fail if clicked.
+  function isOwnSupplierOrder(order: Order): boolean {
+    return session?.role === "Supplier" && order.supplierWalletId === session.walletId;
+  }
+
+  function isOwnBuyerOrder(order: Order): boolean {
+    return session?.role === "Buyer" && order.buyerWalletId === session.walletId;
+  }
+
+  async function handleConfirm(order: Order, e: React.MouseEvent) {
+    e.stopPropagation();
+    setActionError(null);
+    setBusyOrderId(order.id);
+    try {
+      await confirmOrder(order.id);
+      await refresh();
+    } catch (err) {
+      setActionError(apiErrorMessage(err, `Could not confirm ${order.id}`));
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
+  // Only this action actually releases funds to the supplier (verified) or
+  // refunds the buyer (not verified) - Logistics marking Delivered on its
+  // own doesn't move any money, see escrow.service.ts's
+  // processBuyerVerification.
+  async function handleVerify(order: Order, verified: boolean, e: React.MouseEvent) {
+    e.stopPropagation();
+    setActionError(null);
+    setBusyOrderId(order.id);
+    try {
+      await verifyDelivery(order.id, verified);
+      await refresh();
+    } catch (err) {
+      setActionError(apiErrorMessage(err, `Could not record verification for ${order.id}`));
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar />
@@ -84,7 +157,7 @@ function Orders() {
           sx={{ fontWeight: 700 }}
           gutterBottom
         >
-          Escrow Orders
+          My Orders
         </Typography>
 
         <Typography
@@ -93,6 +166,8 @@ function Orders() {
         >
           Manage and track all programmable money transactions.
         </Typography>
+
+        {actionError && <Alert severity="error" sx={{ mb: 3 }}>{actionError}</Alert>}
 
         <Grid
           container
@@ -152,8 +227,10 @@ function Orders() {
                 <TableCell align="right"><strong>Escrow</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
                 <TableCell><strong>Contract State</strong></TableCell>
+                <TableCell><strong>Fulfillment</strong></TableCell>
                 <TableCell><strong>Settlement</strong></TableCell>
                 <TableCell><strong>Created On</strong></TableCell>
+                <TableCell align="right"><strong>Actions</strong></TableCell>
               </TableRow>
             </TableHead>
 
@@ -189,8 +266,49 @@ function Orders() {
                       variant="outlined"
                     />
                   </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={FULFILLMENT_LABELS[order.fulfillmentStatus]}
+                      color={FULFILLMENT_COLORS[order.fulfillmentStatus]}
+                      size="small"
+                    />
+                  </TableCell>
                   <TableCell>{order.settlement}</TableCell>
                   <TableCell>{order.createdOn}</TableCell>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                    {isOwnSupplierOrder(order) && order.fulfillmentStatus === "AwaitingConfirmation" && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={busyOrderId === order.id}
+                        onClick={(e) => handleConfirm(order, e)}
+                      >
+                        Confirm Order
+                      </Button>
+                    )}
+                    {isOwnBuyerOrder(order) && order.fulfillmentStatus === "AwaitingBuyerVerification" && (
+                      <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          disabled={busyOrderId === order.id}
+                          onClick={(e) => handleVerify(order, true, e)}
+                        >
+                          Product Verified
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          disabled={busyOrderId === order.id}
+                          onClick={(e) => handleVerify(order, false, e)}
+                        >
+                          Product Failed
+                        </Button>
+                      </Stack>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

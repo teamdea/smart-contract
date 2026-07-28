@@ -11,11 +11,80 @@ data EscrowStatus
   | Refunded
   deriving (Eq, Show)
 
+-- | A wallet's real, ledger-held balance - "the money itself" from the
+-- problem statement, not a number in an application database. Exactly one
+-- live (non-archived) CashHolding exists per real wallet at any time.
+-- The SAME template is also used to represent the escrow-managed account
+-- (see escrowHoldingWalletId below) - a real intermediate account the 10%
+-- margin actually sits in between order and delivery, not just a number
+-- remembered on the Escrow contract. `operator` is sole signatory,
+-- matching Escrow's own trust model below - Buyer/Supplier don't yet have
+-- independent Daml identities in this hackathon build.
+template CashHolding
+  with
+    operator : Party
+    walletId : Text
+    amount   : Decimal
+  where
+    signatory operator
+    ensure amount >= 0.0
+
+    -- Debits the 10% margin from the buyer and moves it into a new,
+    -- genuine escrow-managed account (its own CashHolding, owned by
+    -- neither the buyer nor the supplier) - not just a number remembered
+    -- on the Escrow contract. The remaining 90% stays in the buyer's own
+    -- spendable balance and is only actually taken at the moment delivery
+    -- is confirmed (see Escrow's ConfirmDelivery choice). The buyer must
+    -- still show they have the FULL order amount available right now,
+    -- even though only the margin moves, so an obviously unaffordable
+    -- order is rejected immediately rather than only failing later at
+    -- delivery. Because the 90% isn't actually reserved in the meantime,
+    -- a buyer could still spend it on something else before delivery -
+    -- ConfirmDelivery re-checks and fails cleanly if that happens.
+    choice FundEscrow : ContractId Escrow
+      with
+        orderId          : Text
+        escrowId         : Text
+        holdReferenceId  : Text
+        buyer            : Party
+        supplier         : Party
+        supplierWalletId : Text
+        orderAmount      : Decimal
+        marginAmount     : Decimal
+        deliverySla      : Text
+      controller operator
+      do
+        assertMsg "Insufficient funds" (amount >= orderAmount)
+        create this with amount = amount - marginAmount
+        create CashHolding with
+          operator
+          walletId = escrowHoldingWalletId escrowId
+          amount = marginAmount
+        create Escrow with
+          operator
+          buyer
+          supplier
+          orderId
+          escrowId
+          holdReferenceId
+          buyerWalletId = walletId
+          supplierWalletId
+          orderAmount
+          marginAmount
+          deliverySla
+          status = EscrowCreated
+
+-- | The special walletId used for the CashHolding that represents the
+-- escrow-managed account for a given escrow - a real intermediate account
+-- the margin sits in, distinct from any real buyer or supplier wallet.
+escrowHoldingWalletId : Text -> Text
+escrowHoldingWalletId escrowId = "ESCROW-" <> escrowId
+
 -- | The escrow contract recorded on the ledger.
--- `operator` is the backend service party (acts on behalf of the platform /
--- Core Banking System integration); buyer and supplier are observers so they
--- can see contract state but the operator drives the workflow, matching a
--- single backend-service deployment for the hackathon demo.
+-- `operator` is the backend service party (acts on behalf of the platform);
+-- buyer and supplier are observers so they can see contract state but the
+-- operator drives the workflow, matching a single backend-service
+-- deployment for the hackathon demo.
 template Escrow
   with
     operator        : Party
@@ -39,21 +108,58 @@ template Escrow
     key (operator, escrowId) : (Party, Text)
     maintainer key._1
 
-    -- Success path: Delivery Confirmed event -> settle (release margin to supplier,
-    -- debit held 90% from buyer). The actual money movement happens in the
-    -- backend's CBS simulator; this choice records the contract's final state.
+    -- Success path: Delivery Confirmed event -> take the remaining 90%
+    -- from the buyer's CURRENT holding (this is the moment that money
+    -- actually leaves them - it was never touched before now), release
+    -- the 10% margin sitting in the escrow-managed account, and pay the
+    -- supplier the full order amount (90% + 10% combined), atomically
+    -- alongside marking the escrow Settled. Fails cleanly if the buyer no
+    -- longer has the 90% available.
     choice ConfirmDelivery : ContractId Escrow
+      with
+        buyerHoldingCid       : ContractId CashHolding
+        buyerHoldingAmount    : Decimal
+        escrowHoldingCid      : ContractId CashHolding
+        supplierHoldingCid    : Optional (ContractId CashHolding)
+        supplierHoldingAmount : Decimal -- 0.0 if supplierHoldingCid is None
       controller operator
       do
         assertMsg "Escrow must be in Created state to confirm delivery" (status == EscrowCreated)
+        let heldAmount = orderAmount - marginAmount
+        assertMsg "Buyer no longer has sufficient funds for the held 90%" (buyerHoldingAmount >= heldAmount)
+        archive buyerHoldingCid
+        create CashHolding with
+          operator
+          walletId = buyerWalletId
+          amount = buyerHoldingAmount - heldAmount
+        archive escrowHoldingCid
+        case supplierHoldingCid of
+          None -> pure ()
+          Some cid -> archive cid
+        create CashHolding with
+          operator
+          walletId = supplierWalletId
+          amount = supplierHoldingAmount + orderAmount
         create this with status = Settled
 
-    -- Failure path: Delivery Failed / Grace Period Expired -> refund margin to buyer,
-    -- release the fund hold on the remaining 90%.
+    -- Failure path: Delivery Failed / Grace Period Expired -> release the
+    -- 10% margin sitting in the escrow-managed account back to the buyer -
+    -- the 90% was never taken from the buyer in the first place under this
+    -- model, so there is nothing else to give back.
     choice FailOrExpireDelivery : ContractId Escrow
+      with
+        buyerHoldingCid    : ContractId CashHolding
+        buyerHoldingAmount : Decimal
+        escrowHoldingCid   : ContractId CashHolding
       controller operator
       do
         assertMsg "Escrow must be in Created state to fail/expire" (status == EscrowCreated)
+        archive buyerHoldingCid
+        archive escrowHoldingCid
+        create CashHolding with
+          operator
+          walletId = buyerWalletId
+          amount = buyerHoldingAmount + marginAmount
         create this with status = Refunded
 
 -- Used as daml.yaml's init-script when `daml start` boots the sandbox, and
@@ -64,26 +170,58 @@ setup = script do
   buyer <- allocateParty "Buyer"
   supplier <- allocateParty "Supplier"
 
-  escrowCid <- submit operator do
-    createCmd Escrow with
+  initialBuyerHoldingCid <- submit operator do
+    createCmd CashHolding with
       operator
-      buyer
-      supplier
+      walletId = "WALLET-INIT-SMOKE-TEST-BUYER"
+      amount = 10000000.0
+
+  escrowCid <- submit operator do
+    exerciseCmd initialBuyerHoldingCid FundEscrow with
       orderId = "ORD-INIT-SMOKE-TEST"
       escrowId = "ESC-INIT-SMOKE-TEST"
       holdReferenceId = "HOLD-INIT-SMOKE-TEST"
-      buyerWalletId = "WALLET-INIT-SMOKE-TEST-BUYER"
+      buyer
+      supplier
       supplierWalletId = "WALLET-INIT-SMOKE-TEST-SUPPLIER"
       orderAmount = 10000000.0
       marginAmount = 1000000.0
       deliverySla = "2026-08-01"
-      status = EscrowCreated
+
+  -- Only the margin was taken by FundEscrow - it should now sit in a real
+  -- escrow-managed CashHolding, not just be remembered as a number.
+  escrowHoldings <- query @CashHolding operator
+  let [(escrowHoldingCid, escrowHolding)] =
+        [(cid, h) | (cid, h) <- escrowHoldings, h.walletId == escrowHoldingWalletId "ESC-INIT-SMOKE-TEST"]
+  assertMsg "the margin should be sitting in a real escrow-managed account" (escrowHolding.amount == 1000000.0)
+
+  buyerHoldingsBeforeSettle <- query @CashHolding operator
+  let [(buyerHoldingCid, buyerHolding)] =
+        [(cid, h) | (cid, h) <- buyerHoldingsBeforeSettle, h.walletId == "WALLET-INIT-SMOKE-TEST-BUYER"]
+  assertMsg "buyer should only be debited the margin at FundEscrow time" (buyerHolding.amount == 9000000.0)
 
   settledCid <- submit operator do
-    exerciseCmd escrowCid ConfirmDelivery
+    exerciseCmd escrowCid ConfirmDelivery with
+      buyerHoldingCid
+      buyerHoldingAmount = buyerHolding.amount
+      escrowHoldingCid
+      supplierHoldingCid = None
+      supplierHoldingAmount = 0.0
 
   Some settled <- queryContractId operator settledCid
   assertMsg "status should be Settled after ConfirmDelivery" (settled.status == Settled)
+
+  finalBuyerHoldings <- query @CashHolding operator
+  let finalBuyerHolding = [h | (_, h) <- finalBuyerHoldings, h.walletId == "WALLET-INIT-SMOKE-TEST-BUYER"]
+  assertMsg "buyer should have the remaining 90% taken at settlement" (finalBuyerHolding == [CashHolding operator "WALLET-INIT-SMOKE-TEST-BUYER" 0.0])
+
+  supplierHoldings <- query @CashHolding operator
+  let supplierHolding = [h | (_, h) <- supplierHoldings, h.walletId == "WALLET-INIT-SMOKE-TEST-SUPPLIER"]
+  assertMsg "supplier should have been paid the full order amount" (supplierHolding == [CashHolding operator "WALLET-INIT-SMOKE-TEST-SUPPLIER" 10000000.0])
+
+  remainingEscrowHoldings <- query @CashHolding operator
+  let remainingEscrowHolding = [h | (_, h) <- remainingEscrowHoldings, h.walletId == escrowHoldingWalletId "ESC-INIT-SMOKE-TEST"]
+  assertMsg "the escrow-managed account should be emptied out once settled" (remainingEscrowHolding == [])
 
   pure ()
 
@@ -94,25 +232,55 @@ testRefundPath = script do
   buyer <- allocateParty "Buyer"
   supplier <- allocateParty "Supplier"
 
-  escrowCid <- submit operator do
-    createCmd Escrow with
+  initialBuyerHoldingCid <- submit operator do
+    createCmd CashHolding with
       operator
-      buyer
-      supplier
+      walletId = "WALLET-TEST-BUYER-2002"
+      amount = 5000000.0
+
+  escrowCid <- submit operator do
+    exerciseCmd initialBuyerHoldingCid FundEscrow with
       orderId = "ORD-2002"
       escrowId = "ESC-2002"
       holdReferenceId = "HOLD-2002"
-      buyerWalletId = "WALLET-TEST-BUYER-2002"
+      buyer
+      supplier
       supplierWalletId = "WALLET-TEST-SUPPLIER-2002"
       orderAmount = 5000000.0
       marginAmount = 500000.0
       deliverySla = "2026-08-05"
-      status = EscrowCreated
+      
+
+  -- Only the margin (500,000) was taken - it should be sitting in a real
+  -- escrow-managed account, and the buyer's holding should read 4,500,000,
+  -- still holding the 90% that was never actually debited.
+  escrowHoldings <- query @CashHolding operator
+  let [(escrowHoldingCid, escrowHolding)] =
+        [(cid, h) | (cid, h) <- escrowHoldings, h.walletId == escrowHoldingWalletId "ESC-2002"]
+  assertMsg "the margin should be sitting in a real escrow-managed account" (escrowHolding.amount == 500000.0)
+
+  buyerHoldingsBeforeRefund <- query @CashHolding operator
+  let [(buyerHoldingCid, buyerHolding)] =
+        [(cid, h) | (cid, h) <- buyerHoldingsBeforeRefund, h.walletId == "WALLET-TEST-BUYER-2002"]
+  assertMsg "buyer should only be debited the margin at FundEscrow time" (buyerHolding.amount == 4500000.0)
 
   refundedCid <- submit operator do
-    exerciseCmd escrowCid FailOrExpireDelivery
+    exerciseCmd escrowCid FailOrExpireDelivery with
+      buyerHoldingCid
+      buyerHoldingAmount = buyerHolding.amount
+      escrowHoldingCid
 
   Some refunded <- queryContractId operator refundedCid
   assertMsg "status should be Refunded after FailOrExpireDelivery" (refunded.status == Refunded)
+
+  -- Refunding only the margin (500,000) back onto the 4,500,000 they still
+  -- had gets them back to the full original 5,000,000.
+  buyerHoldings <- query @CashHolding operator
+  let finalBuyerHolding = [h | (_, h) <- buyerHoldings, h.walletId == "WALLET-TEST-BUYER-2002"]
+  assertMsg "buyer should be back to their original balance" (finalBuyerHolding == [CashHolding operator "WALLET-TEST-BUYER-2002" 5000000.0])
+
+  remainingEscrowHoldings <- query @CashHolding operator
+  let remainingEscrowHolding = [h | (_, h) <- remainingEscrowHoldings, h.walletId == escrowHoldingWalletId "ESC-2002"]
+  assertMsg "the escrow-managed account should be emptied out once refunded" (remainingEscrowHolding == [])
 
   pure ()

@@ -6,6 +6,9 @@ data
 
 .env
 
+# GCP service account keys - real credentials, never commit these
+secrets/
+
 coverage
 
 .vscode

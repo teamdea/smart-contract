@@ -4,6 +4,8 @@ import { sessionService } from "../services/session.service";
 import { Wallet } from "../models/Wallet";
 import { ApiError } from "../exceptions/ApiError";
 import { ok } from "../utils/response";
+import { createInitialCashHolding } from "../ledger/ledger.service";
+import { STARTING_BUYER_BALANCE } from "../config/constants";
 
 // Login and registration only ever reveal identity (who you are) plus a
 // session token, never balance - otherwise being logged in would be enough
@@ -34,6 +36,14 @@ export const authController = {
       const result = await walletRepository.register({ walletId, ownerName, role, pin, accountNumber });
       if (result === "ALREADY_EXISTS") {
         throw ApiError.conflict(`Wallet ID "${walletId}" is already registered - try logging in instead`);
+      }
+
+      // Only Buyers start funded - a real, ledger-held CashHolding, not a
+      // database number. Suppliers/Logistics start with none; a Supplier
+      // gets their first holding automatically the first time they're paid
+      // (see Escrow.daml's ConfirmDelivery).
+      if (role === "Buyer") {
+        await createInitialCashHolding(walletId, STARTING_BUYER_BALANCE);
       }
 
       ok(res, toIdentity(result), 201);

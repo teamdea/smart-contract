@@ -45,4 +45,30 @@ export const orderController = {
       next(err);
     }
   },
+
+  async confirm(req: Request, res: Response, next: NextFunction) {
+    try {
+      // requireRole("Supplier") guarantees req.wallet is set - use it as the
+      // confirming party, ignoring anything the request body claims.
+      const order = await orderService.confirmOrder(req.params.id, req.wallet!.walletId);
+      ok(res, order);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async verifyDelivery(req: Request, res: Response, next: NextFunction) {
+    try {
+      // requireRole("Buyer") guarantees req.wallet is set - use it as the
+      // verifying party, ignoring anything the request body claims.
+      const order = await escrowService.processBuyerVerification(
+        req.params.id,
+        req.wallet!.walletId,
+        Boolean(req.body.verified)
+      );
+      ok(res, order);
+    } catch (err) {
+      next(err);
+    }
+  },
 };

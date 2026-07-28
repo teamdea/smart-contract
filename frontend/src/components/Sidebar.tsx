@@ -14,10 +14,12 @@ import PaymentsIcon from "@mui/icons-material/Payments";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import CategoryIcon from "@mui/icons-material/Category";
 
 import { Link, useLocation } from "react-router-dom";
 
 import teamDeaLogo from "../assets/teamdea-logo.png";
+import { getSession } from "../services/session";
 
 const DRAWER_WIDTH = 295;
 
@@ -33,9 +35,15 @@ const menuItems = [
     path: "/create-order",
   },
   {
-    title: "Orders",
+    title: "My Orders",
     icon: <Inventory2Icon />,
     path: "/orders",
+  },
+  {
+    title: "My Products",
+    icon: <CategoryIcon />,
+    path: "/my-products",
+    supplierOnly: true,
   },
   {
     title: "Logistics",
@@ -63,6 +71,18 @@ const menuItems = [
 
 function Sidebar() {
   const location = useLocation();
+  const session = getSession();
+  // Logistics has its own dedicated, unauthenticated entry point from the
+  // login screen, so it doesn't belong in anyone else's nav. Create Order
+  // is Buyer-only. Wallets doesn't apply to Logistics (they never hold
+  // funds) or make sense on a Seller's own page here.
+  const visibleItems = menuItems.filter((item) => {
+    if (item.path === "/logistics") return session?.role === "Logistics";
+    if (item.path === "/create-order") return session?.role === "Buyer";
+    if (item.path === "/wallets") return session?.role !== "Logistics";
+    if (item.supplierOnly) return session?.role === "Supplier";
+    return true;
+  });
 
   return (
     <Drawer
@@ -133,7 +153,7 @@ function Sidebar() {
       {/* Navigation */}
 
       <List sx={{ mt: 2 }}>
-        {menuItems.map((item) =>
+        {visibleItems.map((item) =>
           item.openInNewTab ? (
             <ListItemButton
               key={item.path}
@@ -149,7 +169,7 @@ function Sidebar() {
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
 
-              <ListItemText primary={item.title} secondary="Opens in new tab" />
+              <ListItemText primary={item.title} />
             </ListItemButton>
           ) : (
             <ListItemButton

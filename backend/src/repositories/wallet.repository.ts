@@ -1,12 +1,7 @@
 import { Wallet, WalletRole } from "../models/Wallet";
-import { store } from "./store";
-import { STARTING_BUYER_BALANCE } from "../config/constants";
+import { getDocument, listDocuments, runQuery, setDocument, updateDocument, whereEquals } from "./firestore.client";
 
-function startingBalance(role: WalletRole): number {
-  // Only Buyers start funded; Suppliers start empty so a settlement visibly
-  // credits money in; Logistics never holds money at all.
-  return role === "Buyer" ? STARTING_BUYER_BALANCE : 0;
-}
+const COLLECTION = "wallets";
 
 export interface RegisterWalletParams {
   walletId: string;
@@ -18,19 +13,32 @@ export interface RegisterWalletParams {
 
 export const walletRepository = {
   async findAll(): Promise<Wallet[]> {
-    return store.get("wallets");
+    return listDocuments<Wallet>(COLLECTION);
   },
 
+  // walletId is the Firestore document ID - a wallet is always looked up
+  // directly by it, never scanned for.
   async findById(walletId: string): Promise<Wallet | undefined> {
-    return store.get("wallets").find((wallet) => wallet.walletId === walletId);
+    return getDocument<Wallet>(COLLECTION, walletId);
   },
 
   async findByRole(role: WalletRole): Promise<Wallet[]> {
-    return store.get("wallets").filter((wallet) => wallet.role === role);
+    return runQuery<Wallet>({
+      from: [{ collectionId: COLLECTION }],
+      where: whereEquals("role", role),
+    });
+  },
+
+  // Looks up multiple wallets by ID at once - used to resolve a category's
+  // distinct sellerWalletIds (from product.repository.ts's findByCategory)
+  // back into identities for the Create Order Seller dropdown.
+  async findByIds(walletIds: string[]): Promise<Wallet[]> {
+    const wallets = await Promise.all(walletIds.map((id) => this.findById(id)));
+    return wallets.filter((wallet): wallet is Wallet => wallet !== undefined);
   },
 
   // Explicit sign-up: the wallet ID must not already be taken. Unlike the
-  // old auto-provision-on-first-order model, a wallet now only comes into
+  // old auto-provision-on-first-order model, a wallet only comes into
   // existence when its owner registers it with their own chosen PIN and
   // account number.
   async register(params: RegisterWalletParams): Promise<Wallet | "ALREADY_EXISTS"> {
@@ -42,24 +50,23 @@ export const walletRepository = {
       walletId: params.walletId,
       ownerName: params.ownerName,
       role: params.role,
-      availableBalance: startingBalance(params.role),
-      heldBalance: 0,
       pin: params.pin,
       accountNumber: params.accountNumber,
     };
-    const wallets = store.get("wallets");
-    wallets.push(wallet);
-    store.set("wallets", wallets);
+
+    await setDocument(COLLECTION, wallet.walletId, { ...wallet });
+
     return wallet;
   },
 
   async update(walletId: string, patch: Partial<Wallet>): Promise<Wallet | undefined> {
-    const wallets = store.get("wallets");
-    const index = wallets.findIndex((wallet) => wallet.walletId === walletId);
-    if (index === -1) return undefined;
-    wallets[index] = { ...wallets[index], ...patch };
-    store.set("wallets", wallets);
-    return wallets[index];
+    const existing = await this.findById(walletId);
+    if (!existing) return undefined;
+    if (Object.keys(patch).length === 0) return existing;
+
+    await updateDocument(COLLECTION, walletId, { ...patch });
+
+    return { ...existing, ...patch };
   },
 
   // Login: proves "I am this wallet" with the PIN chosen at registration.

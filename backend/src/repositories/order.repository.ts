@@ -1,30 +1,37 @@
 import { Order } from "../models/Order";
-import { store } from "./store";
+import { getDocument, runQuery, setDocument, updateDocument } from "./firestore.client";
+
+const COLLECTION = "orders";
 
 export const orderRepository = {
   async findAll(): Promise<Order[]> {
-    return store.get("orders");
+    return runQuery<Order>({
+      from: [{ collectionId: COLLECTION }],
+      orderBy: [{ field: { fieldPath: "createdOn" }, direction: "ASCENDING" }],
+    });
   },
 
   async findById(id: string): Promise<Order | undefined> {
-    return store.get("orders").find((order) => order.id === id);
+    return getDocument<Order>(COLLECTION, id);
   },
 
+  // The order's own id is the Firestore document ID - orders are always
+  // looked up by id, never listed with an unrelated key.
   async create(order: Order): Promise<Order> {
-    const orders = store.get("orders");
-    orders.push(order);
-    store.set("orders", orders);
+    await setDocument(COLLECTION, order.id, { ...order });
     return order;
   },
 
   async update(id: string, patch: Partial<Order>): Promise<Order | undefined> {
-    const orders = store.get("orders");
-    const index = orders.findIndex((order) => order.id === id);
-    if (index === -1) {
+    const existing = await this.findById(id);
+    if (!existing) {
       return undefined;
     }
-    orders[index] = { ...orders[index], ...patch };
-    store.set("orders", orders);
-    return orders[index];
+    if (Object.keys(patch).length === 0) {
+      return existing;
+    }
+
+    await updateDocument(COLLECTION, id, { ...patch });
+    return { ...existing, ...patch };
   },
 };
