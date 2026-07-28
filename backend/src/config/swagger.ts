@@ -137,18 +137,20 @@ export const swaggerSpec = {
         security: [{ bearerAuth: [] }],
         description:
           "buyerWalletId is taken from the authenticated session, not the request body - " +
-          "a logged-in buyer can't impersonate another buyer.",
+          "a logged-in buyer can't impersonate another buyer. orderAmount and the escrow " +
+          "margin are never taken from the request either - both are derived server-side " +
+          "from the given productId (see GET /products), so a tampered request can't order " +
+          "a high-value product at a lower margin than its seller defined.",
         requestBody: {
           required: true,
           content: {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["supplierWalletId", "orderAmount"],
+                required: ["supplierWalletId", "productId"],
                 properties: {
                   supplierWalletId: { type: "string" },
-                  orderAmount: { type: "number" },
-                  escrowPercent: { type: "number", example: 10 },
+                  productId: { type: "string" },
                 },
               },
             },

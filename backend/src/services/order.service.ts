@@ -4,17 +4,16 @@ import { EscrowRecord } from "../models/Escrow";
 import { orderRepository } from "../repositories/order.repository";
 import { escrowRepository } from "../repositories/escrow.repository";
 import { walletRepository } from "../repositories/wallet.repository";
+import { productRepository } from "../repositories/product.repository";
 import { logActivity } from "../repositories/activity.repository";
 import * as ledgerService from "../ledger/ledger.service";
 import { formatDisplayDate } from "../utils/date";
 import { ApiError } from "../exceptions/ApiError";
-import { DEFAULT_ESCROW_PERCENT } from "../config/constants";
 
 export interface CreateOrderInput {
   buyerWalletId: string;
   supplierWalletId: string;
-  orderAmount: number;
-  escrowPercent?: number;
+  productId: string;
   deliverySla?: string;
 }
 
@@ -47,11 +46,8 @@ export const orderService = {
   },
 
   async createOrder(input: CreateOrderInput): Promise<Order> {
-    if (!input.buyerWalletId || !input.supplierWalletId) {
-      throw ApiError.badRequest("buyerWalletId and supplierWalletId are required");
-    }
-    if (!input.orderAmount || input.orderAmount <= 0) {
-      throw ApiError.badRequest("orderAmount must be greater than zero");
+    if (!input.buyerWalletId || !input.supplierWalletId || !input.productId) {
+      throw ApiError.badRequest("buyerWalletId, supplierWalletId, and productId are required");
     }
 
     // Wallets must already be registered (see auth.controller.ts) - you
@@ -71,8 +67,19 @@ export const orderService = {
       throw ApiError.badRequest(`Wallet "${input.supplierWalletId}" is not registered as a Supplier`);
     }
 
-    const escrowPercent = input.escrowPercent ?? DEFAULT_ESCROW_PERCENT;
-    const escrowAmount = Math.round((input.orderAmount * escrowPercent) / 100);
+    // The order amount and escrow margin are never taken from the request
+    // body - they're always derived from the product the Supplier itself
+    // defined, so a tampered request can't order a Mercedes at a Toyota's
+    // margin. See product.service.ts's addProduct.
+    const product = await productRepository.findById(input.productId);
+    if (!product) {
+      throw ApiError.badRequest(`Product "${input.productId}" not found`);
+    }
+    if (product.sellerWalletId !== input.supplierWalletId) {
+      throw ApiError.badRequest(`Product "${input.productId}" does not belong to supplier "${input.supplierWalletId}"`);
+    }
+    const orderAmount = product.price;
+    const escrowAmount = Math.round((product.price * product.escrowMarginPercent) / 100);
     const deliverySla = input.deliverySla ?? formatDisplayDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
 
     const existingOrders = await orderRepository.findAll();
@@ -92,7 +99,7 @@ export const orderService = {
       escrowId,
       holdReferenceId,
       supplierWalletId: input.supplierWalletId,
-      orderAmount: input.orderAmount,
+      orderAmount,
       marginAmount: escrowAmount,
       deliverySla,
     });
@@ -102,7 +109,7 @@ export const orderService = {
       orderId,
       contractId,
       holdReferenceId,
-      orderAmount: input.orderAmount,
+      orderAmount,
       marginAmount: escrowAmount,
       status: "Created",
       createdAt: new Date().toISOString(),
@@ -114,7 +121,7 @@ export const orderService = {
       id: orderId,
       buyer: buyerWallet.ownerName,
       merchant: supplierWallet.ownerName,
-      amount: input.orderAmount,
+      amount: orderAmount,
       escrow: escrowAmount,
       status: "Active",
       settlement: "Pending",

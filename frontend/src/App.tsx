@@ -6,6 +6,7 @@ import Orders from "./pages/Orders";
 import Reports from "./pages/Reports";
 import Settlement from "./pages/Settlement";
 import Logistics from "./pages/Logistics";
+import SellerProducts from "./pages/SellerProducts";
 import Wallets from "./pages/Wallets";
 import Login from "./pages/Login";
 import RequireAuth from "./components/RequireAuth";
@@ -48,6 +49,11 @@ function App() {
       <Route
         path="/logistics"
         element={<RequireAuth><Logistics /></RequireAuth>}
+      />
+
+      <Route
+        path="/my-products"
+        element={<RequireAuth><SellerProducts /></RequireAuth>}
       />
 
       <Route

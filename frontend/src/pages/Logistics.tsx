@@ -22,9 +22,17 @@ import { listOrders, updateDeliveryStatus, type Order } from "../services/api";
 import { getSession } from "../services/session";
 import { apiErrorMessage } from "../utils/errors";
 
-const FULFILLMENT_CHIP: Record<Order["fulfillmentStatus"], { label: string; color: "default" | "warning" }> = {
+// ProductVerified/ProductFailed/DeliveryFailed orders never actually show up
+// in this table - Logistics only sees still-Active orders (see
+// pendingOrders below), and all three of those are terminal/resolved
+// states. Still needed here for TypeScript's Record exhaustiveness.
+const FULFILLMENT_CHIP: Record<Order["fulfillmentStatus"], { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
   AwaitingConfirmation: { label: "Awaiting Seller Confirmation", color: "default" },
   Confirmed: { label: "In Transit", color: "warning" },
+  AwaitingBuyerVerification: { label: "Delivered - Awaiting Buyer Verification", color: "info" },
+  ProductVerified: { label: "Product Verified", color: "success" },
+  ProductFailed: { label: "Product Failed", color: "error" },
+  DeliveryFailed: { label: "Delivery Failed", color: "error" },
 };
 
 // This is the independent Logistics Oracle's screen (architecture diagram
@@ -63,7 +71,7 @@ function Logistics() {
       await updateDeliveryStatus(order.id, status);
       setToast(
         status === "Delivered"
-          ? `${order.id} marked delivered — escrow released to ${order.merchant}.`
+          ? `${order.id} marked delivered — awaiting ${order.buyer}'s verification before funds move.`
           : `${order.id} marked failed — escrow refunded to ${order.buyer}.`
       );
       await refresh();
@@ -115,9 +123,10 @@ function Logistics() {
 
         <Typography color="text.secondary" sx={{ mb: 4 }}>
           Independent logistics/courier view — not the buyer or the supplier. An order shows
-          "In Transit" once its Supplier confirms it; reporting delivery status here is what
-          triggers escrow settlement (funds released) or refund (funds returned to the buyer) on
-          the ledger, and is only possible once an order is In Transit.
+          "In Transit" once its Supplier confirms it. Marking a shipment Failed (never arrived)
+          refunds the buyer immediately. Marking it Delivered does not release funds by itself -
+          it only confirms the package physically arrived; the Buyer still has to verify the
+          product itself before the supplier gets paid.
         </Typography>
 
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}

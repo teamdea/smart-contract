@@ -56,8 +56,9 @@ function Wallets() {
         </Typography>
 
         <Typography color="text.secondary" sx={{ mb: 4 }}>
-          "Held" is money frozen under a fund-hold lien (not yet paid); "Available" is
-          spendable/receivable now.
+          {session?.role === "Buyer"
+            ? "\"Held\" is money committed to your pending orders; \"Available\" is spendable now."
+            : "\"Available\" is the balance you can spend or have already received."}
         </Typography>
 
         <Card sx={{ borderRadius: 3, mb: 3 }}>
@@ -102,8 +103,30 @@ function Wallets() {
                     </Typography>
                     <Stack direction="row" spacing={4} sx={{ mt: 1 }}>
                       <Typography>Available: <strong>₹{ownWallet.availableBalance.toLocaleString("en-IN")}</strong></Typography>
-                      <Typography>Held: <strong>₹{ownWallet.heldBalance.toLocaleString("en-IN")}</strong></Typography>
+                      {session?.role === "Buyer" && (
+                        <>
+                          <Typography>Held: <strong>₹{(ownWallet.heldBalance ?? 0).toLocaleString("en-IN")}</strong></Typography>
+                          <Typography>
+                            In Escrow: <strong>₹{(ownWallet.escrowedBalance ?? 0).toLocaleString("en-IN")}</strong>
+                          </Typography>
+                        </>
+                      )}
                     </Stack>
+
+                    {session?.role === "Buyer" && (ownWallet.heldOrders?.length ?? 0) > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Held amount by order:
+                        </Typography>
+                        <Stack spacing={0.5}>
+                          {ownWallet.heldOrders!.map((entry) => (
+                            <Typography key={entry.orderId} variant="body2">
+                              {entry.orderId} - {entry.sellerName}: <strong>₹{entry.heldAmount.toLocaleString("en-IN")}</strong>
+                            </Typography>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
                   </Paper>
                 )}
               </>

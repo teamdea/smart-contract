@@ -15,5 +15,9 @@ router.post("/:id/delivery", requireRole("Logistics"), orderController.reportDel
 // Supplier-only: only the order's own supplier can confirm it - ownership
 // is checked again inside order.service.ts.
 router.post("/:id/confirm", requireRole("Supplier"), orderController.confirm);
+// Buyer-only: only the order's own buyer can verify it, and only once
+// Logistics has reported Delivered - see escrow.service.ts's
+// processBuyerVerification.
+router.post("/:id/verify-delivery", requireRole("Buyer"), orderController.verifyDelivery);
 
 export default router;

@@ -1,5 +1,10 @@
-// Escrow margin percentage offered in Create Order (matches frontend's [5,10,15,20] options)
-export const DEFAULT_ESCROW_PERCENT = 10;
+// Fixed list of business sectors a Supplier can sell under - shown as a
+// dropdown both when a Supplier adds a product and when a Buyer browses by
+// category. Kept as a fixed list (not free text) so a Buyer's category
+// filter always matches Suppliers exactly - no risk of "Automobile" vs
+// "Automobiles" silently failing to match. Mirrored in
+// frontend/src/config/productCategories.ts - keep both in sync.
+export const PRODUCT_CATEGORIES = ["Automobile", "Electronics", "Textiles", "Machinery", "Agriculture"];
 
 export const DAML_TEMPLATE_MODULE = "Escrow";
 export const DAML_TEMPLATE_ENTITY = "Escrow";

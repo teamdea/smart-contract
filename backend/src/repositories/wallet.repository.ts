@@ -29,6 +29,14 @@ export const walletRepository = {
     });
   },
 
+  // Looks up multiple wallets by ID at once - used to resolve a category's
+  // distinct sellerWalletIds (from product.repository.ts's findByCategory)
+  // back into identities for the Create Order Seller dropdown.
+  async findByIds(walletIds: string[]): Promise<Wallet[]> {
+    const wallets = await Promise.all(walletIds.map((id) => this.findById(id)));
+    return wallets.filter((wallet): wallet is Wallet => wallet !== undefined);
+  },
+
   // Explicit sign-up: the wallet ID must not already be taken. Unlike the
   // old auto-provision-on-first-order model, a wallet only comes into
   // existence when its owner registers it with their own chosen PIN and

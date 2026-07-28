@@ -138,14 +138,22 @@ function Login() {
         alignItems: "center",
         justifyContent: "center",
         minHeight: "100vh",
-        bgcolor: "#f4f6f8",
+        // /login-bg.jpg is served straight from frontend/public - drop the
+        // file there (no build step needed to pick it up). The gradient
+        // underneath is what actually renders if that file is missing, and
+        // also darkens the photo so the white card stays readable on top of it.
+        backgroundImage:
+          "linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(30,58,138,0.75) 55%, rgba(37,99,235,0.7) 100%), url(/login-bg.jpg)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundColor: "#0f172a",
         p: 2,
       }}
     >
-      <Card sx={{ maxWidth: 480, width: "100%", borderRadius: 3 }}>
+      <Card sx={{ maxWidth: 460, width: "100%", borderRadius: 3, boxShadow: 12 }}>
         <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-            Programmable Money & Smart Escrow
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, lineHeight: 1.3 }}>
+            Smart Escrow - A Conditional Payment Settlement using Programmable Money
           </Typography>
 
           {view === "roleSelect" ? (
@@ -156,7 +164,7 @@ function Login() {
 
               {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-              <Stack spacing={2}>
+              <Stack spacing={1.5}>
                 <Button
                   fullWidth
                   size="large"

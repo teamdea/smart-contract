@@ -10,6 +10,7 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import LockIcon from "@mui/icons-material/Lock";
 import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
@@ -20,6 +21,7 @@ import ActivityCard from "../components/ActivityCard";
 import OrdersTable from "../components/OrdersTable";
 
 import { getDashboardSummary, type DashboardSummary } from "../services/api";
+import { getSession } from "../services/session";
 
 const EMPTY_SUMMARY_CARDS = [
   { title: "Total Orders", value: "0" },
@@ -28,14 +30,24 @@ const EMPTY_SUMMARY_CARDS = [
   { title: "Completed Orders", value: "0" },
 ];
 
-const summaryIcons = [
+const DEFAULT_SUMMARY_ICONS = [
   <ShoppingCartIcon fontSize="large" />,
   <LockIcon fontSize="large" />,
   <CurrencyRupeeIcon fontSize="large" />,
   <CheckCircleIcon fontSize="large" />,
 ];
 
+// Logistics never settles money and has no escrow balance of its own to
+// report - "Orders Pending"/"Orders Delivered" (the same underlying counts
+// as "Active Escrows"/"Completed Orders") are what actually matters to it.
+const LOGISTICS_SUMMARY_ICONS = [
+  <ShoppingCartIcon fontSize="large" />,
+  <LocalShippingIcon fontSize="large" />,
+  <CheckCircleIcon fontSize="large" />,
+];
+
 function Dashboard() {
+  const session = getSession();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loadError, setLoadError] = useState(false);
 
@@ -45,7 +57,17 @@ function Dashboard() {
       .catch(() => setLoadError(true));
   }, []);
 
-  const summaryCards = summary?.summaryCards ?? EMPTY_SUMMARY_CARDS;
+  const rawCards = summary?.summaryCards ?? EMPTY_SUMMARY_CARDS;
+  const isLogistics = session?.role === "Logistics";
+  const summaryCards = isLogistics
+    ? [
+        rawCards[0],
+        { title: "Orders Pending", value: rawCards[1]?.value ?? "0" },
+        { title: "Orders Delivered", value: rawCards[3]?.value ?? "0" },
+      ]
+    : rawCards;
+  const summaryIcons = isLogistics ? LOGISTICS_SUMMARY_ICONS : DEFAULT_SUMMARY_ICONS;
+
   const platformStatus = summary?.platformStatus ?? [];
   const activities = summary?.activities ?? [];
   const recentOrders = summary?.recentOrders ?? [];

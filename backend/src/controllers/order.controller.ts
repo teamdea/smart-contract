@@ -56,4 +56,19 @@ export const orderController = {
       next(err);
     }
   },
+
+  async verifyDelivery(req: Request, res: Response, next: NextFunction) {
+    try {
+      // requireRole("Buyer") guarantees req.wallet is set - use it as the
+      // verifying party, ignoring anything the request body claims.
+      const order = await escrowService.processBuyerVerification(
+        req.params.id,
+        req.wallet!.walletId,
+        Boolean(req.body.verified)
+      );
+      ok(res, order);
+    } catch (err) {
+      next(err);
+    }
+  },
 };

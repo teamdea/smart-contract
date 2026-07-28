@@ -1,7 +1,7 @@
 import { cantonClient } from "./canton.client";
 import { resolvePackageId } from "./packageId";
 import { toDamlDecimal, fromDamlDecimal } from "./contract.mapper";
-import { DamlCashHoldingPayload, DamlEscrowPayload } from "./contract.types";
+import { DamlCashHoldingPayload } from "./contract.types";
 import { LedgerError } from "../exceptions/LedgerError";
 import {
   DAML_TEMPLATE_MODULE,
@@ -227,21 +227,4 @@ export async function failOrExpireDelivery(contractId: string, escrowId: string,
     [parties.operator]
   );
   return result.exerciseResult;
-}
-
-// "heldBalance" for display purposes: the 90% of each still-pending order
-// that's been committed but not yet actually taken from the buyer's
-// spendable CashHolding (see FundEscrow - only the margin is debited up
-// front) - the sum of (orderAmount - marginAmount) across their
-// still-EscrowCreated escrows.
-export async function getHeldAmountForBuyer(buyerWalletId: string): Promise<number> {
-  const templateId = getEscrowTemplateId();
-  const parties = await getParties();
-  const contracts = await cantonClient.query<DamlEscrowPayload>(templateId, [parties.operator]);
-  return contracts
-    .filter((contract) => contract.payload.buyerWalletId === buyerWalletId && contract.payload.status === "EscrowCreated")
-    .reduce(
-      (sum, contract) => sum + (fromDamlDecimal(contract.payload.orderAmount) - fromDamlDecimal(contract.payload.marginAmount)),
-      0
-    );
 }

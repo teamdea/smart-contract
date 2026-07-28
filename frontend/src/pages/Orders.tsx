@@ -8,6 +8,7 @@ import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Alert from "@mui/material/Alert";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -20,19 +21,27 @@ import Typography from "@mui/material/Typography";
 
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import { confirmOrder, listOrders, type Order } from "../services/api";
+import { confirmOrder, listOrders, verifyDelivery, type Order } from "../services/api";
 import { getOrderLifecycleState, getOrderLifecycleColor } from "../utils/orderState";
 import { getSession } from "../services/session";
 import { apiErrorMessage } from "../utils/errors";
 
 const FULFILLMENT_LABELS: Record<Order["fulfillmentStatus"], string> = {
   AwaitingConfirmation: "Awaiting Confirmation",
-  Confirmed: "Confirmed",
+  Confirmed: "Order Confirmed",
+  AwaitingBuyerVerification: "Awaiting Your Verification",
+  ProductVerified: "Product Verified",
+  ProductFailed: "Product Failed",
+  DeliveryFailed: "Delivery Failed",
 };
 
-const FULFILLMENT_COLORS: Record<Order["fulfillmentStatus"], "default" | "info"> = {
+const FULFILLMENT_COLORS: Record<Order["fulfillmentStatus"], "default" | "info" | "success" | "error"> = {
   AwaitingConfirmation: "default",
   Confirmed: "info",
+  AwaitingBuyerVerification: "info",
+  ProductVerified: "success",
+  ProductFailed: "error",
+  DeliveryFailed: "error",
 };
 
 function Orders() {
@@ -83,11 +92,16 @@ function Orders() {
     }
   };
 
-  // Only the order's own Supplier gets the Confirm Order action - the
-  // backend re-checks this ownership too, this just avoids showing a
+  // Only the order's own Supplier gets the Confirm Order action, and only
+  // the order's own Buyer gets the Product Verified/Failed actions - the
+  // backend re-checks both ownerships too, this just avoids showing a
   // button that would fail if clicked.
   function isOwnSupplierOrder(order: Order): boolean {
     return session?.role === "Supplier" && order.supplierWalletId === session.walletId;
+  }
+
+  function isOwnBuyerOrder(order: Order): boolean {
+    return session?.role === "Buyer" && order.buyerWalletId === session.walletId;
   }
 
   async function handleConfirm(order: Order, e: React.MouseEvent) {
@@ -99,6 +113,24 @@ function Orders() {
       await refresh();
     } catch (err) {
       setActionError(apiErrorMessage(err, `Could not confirm ${order.id}`));
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
+  // Only this action actually releases funds to the supplier (verified) or
+  // refunds the buyer (not verified) - Logistics marking Delivered on its
+  // own doesn't move any money, see escrow.service.ts's
+  // processBuyerVerification.
+  async function handleVerify(order: Order, verified: boolean, e: React.MouseEvent) {
+    e.stopPropagation();
+    setActionError(null);
+    setBusyOrderId(order.id);
+    try {
+      await verifyDelivery(order.id, verified);
+      await refresh();
+    } catch (err) {
+      setActionError(apiErrorMessage(err, `Could not record verification for ${order.id}`));
     } finally {
       setBusyOrderId(null);
     }
@@ -125,7 +157,7 @@ function Orders() {
           sx={{ fontWeight: 700 }}
           gutterBottom
         >
-          Escrow Orders
+          My Orders
         </Typography>
 
         <Typography
@@ -253,6 +285,28 @@ function Orders() {
                       >
                         Confirm Order
                       </Button>
+                    )}
+                    {isOwnBuyerOrder(order) && order.fulfillmentStatus === "AwaitingBuyerVerification" && (
+                      <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          disabled={busyOrderId === order.id}
+                          onClick={(e) => handleVerify(order, true, e)}
+                        >
+                          Product Verified
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          disabled={busyOrderId === order.id}
+                          onClick={(e) => handleVerify(order, false, e)}
+                        >
+                          Product Failed
+                        </Button>
+                      </Stack>
                     )}
                   </TableCell>
                 </TableRow>

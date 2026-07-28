@@ -6,6 +6,7 @@ import oracleRoutes from "./oracle.routes";
 import dashboardRoutes from "./dashboard.routes";
 import walletRoutes from "./wallet.routes";
 import authRoutes from "./auth.routes";
+import productRoutes from "./product.routes";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use("/escrows", escrowRoutes);
 router.use("/oracle", oracleRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/wallets", walletRoutes);
+router.use("/products", productRoutes);
 
 export default router;

@@ -8,10 +8,12 @@
 export type WalletRole = "Buyer" | "Supplier" | "Logistics";
 
 // Identity and credentials only - this is what's actually stored. A
-// wallet's real balance is not stored here: it lives on the Canton ledger
-// as CashHolding contracts (see ledger/ledger.service.ts's getCashHolding /
-// getHeldAmountForBuyer), fetched fresh wherever a balance needs to be
-// shown (see wallet.controller.ts's verifyAccount).
+// wallet's real spendable balance is not stored here: it lives on the
+// Canton ledger as a CashHolding contract (see
+// ledger/ledger.service.ts's getCashHolding), fetched fresh wherever a
+// balance needs to be shown (see wallet.controller.ts's verifyAccount,
+// which also derives held/escrowed amounts from the Buyer's own Order
+// records for display).
 //
 // Two separate credentials, for two separate purposes:
 // - `pin` logs you into the platform (proves "I am this wallet").
