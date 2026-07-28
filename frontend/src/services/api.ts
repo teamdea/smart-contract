@@ -159,7 +159,9 @@ export async function listWalletsByRole(
   role: "Buyer" | "Supplier",
   category?: string
 ): Promise<WalletIdentity[]> {
-  const res = await client.get<ApiEnvelope<WalletIdentity[]>>("/wallets", { params: { role, category } });
+  const res = await client.get<ApiEnvelope<WalletIdentity[]>>("/wallets", {
+    params: { role, category },
+  });
   return res.data.data;
 }
 
@@ -168,8 +170,13 @@ export async function listWalletsByRole(
 // Optionally narrowed to one category - a seller can list products across
 // more than one category, so Create Order passes the category the buyer
 // already picked rather than showing the seller's whole catalog mixed together.
-export async function listProductsBySeller(sellerWalletId: string, category?: string): Promise<Product[]> {
-  const res = await client.get<ApiEnvelope<Product[]>>("/products", { params: { sellerWalletId, category } });
+export async function listProductsBySeller(
+  sellerWalletId: string,
+  category?: string
+): Promise<Product[]> {
+  const res = await client.get<ApiEnvelope<Product[]>>("/products", {
+    params: { sellerWalletId, category },
+  });
   return res.data.data;
 }
 
@@ -226,7 +233,9 @@ export async function confirmOrder(orderId: string): Promise<Order> {
 // buyer (not verified) - Logistics reporting Delivered on its own no
 // longer moves any money.
 export async function verifyDelivery(orderId: string, verified: boolean): Promise<Order> {
-  const res = await client.post<ApiEnvelope<Order>>(`/orders/${orderId}/verify-delivery`, { verified });
+  const res = await client.post<ApiEnvelope<Order>>(`/orders/${orderId}/verify-delivery`, {
+    verified,
+  });
   return res.data.data;
 }
 
@@ -237,7 +246,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
 // A step-up check independent of login: the account number chosen at
 // registration, required specifically to view balance on the Wallets page.
-export async function verifyWalletAccount(walletId: string, accountNumber: string): Promise<Wallet> {
-  const res = await client.post<ApiEnvelope<Wallet>>(`/wallets/${walletId}/verify-account`, { accountNumber });
+export async function verifyWalletAccount(
+  walletId: string,
+  accountNumber: string
+): Promise<Wallet> {
+  const res = await client.post<ApiEnvelope<Wallet>>(`/wallets/${walletId}/verify-account`, {
+    accountNumber,
+  });
   return res.data.data;
 }

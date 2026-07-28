@@ -29,7 +29,9 @@ export const oracleController = {
 
       const { orderId, status } = req.body;
       if (!orderId || (status !== "Delivered" && status !== "Failed")) {
-        throw ApiError.badRequest('Body must be { "orderId": string, "status": "Delivered" | "Failed" }');
+        throw ApiError.badRequest(
+          'Body must be { "orderId": string, "status": "Delivered" | "Failed" }'
+        );
       }
 
       const order = await escrowService.processDeliveryEvent(orderId, status);

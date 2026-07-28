@@ -36,10 +36,7 @@ function getChipColor(status: string) {
   }
 }
 
-function StatusCard({
-  title,
-  items,
-}: StatusCardProps) {
+function StatusCard({ title, items }: StatusCardProps) {
   return (
     <Card
       elevation={2}
@@ -52,8 +49,8 @@ function StatusCard({
         <Typography
           variant="h6"
           sx={{
-        fontWeight: 700,
-        }}
+            fontWeight: 700,
+          }}
           gutterBottom
         >
           {title}
@@ -69,22 +66,13 @@ function StatusCard({
               justifyContent: "space-between",
               alignItems: "center",
               py: 1.5,
-              borderBottom:
-                index !== items.length - 1
-                  ? "1px solid"
-                  : "none",
+              borderBottom: index !== items.length - 1 ? "1px solid" : "none",
               borderColor: "divider",
             }}
           >
-            <Typography>
-              {item.service}
-            </Typography>
+            <Typography>{item.service}</Typography>
 
-            <Chip
-              label={item.status}
-              color={getChipColor(item.status)}
-              size="small"
-            />
+            <Chip label={item.status} color={getChipColor(item.status)} size="small" />
           </Box>
         ))}
       </CardContent>

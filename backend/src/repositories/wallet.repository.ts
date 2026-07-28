@@ -1,5 +1,12 @@
 import { Wallet, WalletRole } from "../models/Wallet";
-import { getDocument, listDocuments, runQuery, setDocument, updateDocument, whereEquals } from "./firestore.client";
+import {
+  getDocument,
+  listDocuments,
+  runQuery,
+  setDocument,
+  updateDocument,
+  whereEquals,
+} from "./firestore.client";
 
 const COLLECTION = "wallets";
 

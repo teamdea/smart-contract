@@ -52,11 +52,7 @@ function Reports() {
       >
         <Toolbar />
 
-        <Typography
-          variant="h4"
-          sx={{ fontWeight: 700 }}
-          gutterBottom
-        >
+        <Typography variant="h4" sx={{ fontWeight: 700 }} gutterBottom>
           Reports & Analytics
         </Typography>
 
@@ -91,10 +87,18 @@ function Reports() {
                 </Typography>
 
                 <Typography gutterBottom>Settlement Completion</Typography>
-                <LinearProgress variant="determinate" value={metrics.settlementCompletion} sx={{ mb: 3 }} />
+                <LinearProgress
+                  variant="determinate"
+                  value={metrics.settlementCompletion}
+                  sx={{ mb: 3 }}
+                />
 
                 <Typography gutterBottom>Smart Contract Execution</Typography>
-                <LinearProgress variant="determinate" value={metrics.smartContractExecution} sx={{ mb: 3 }} />
+                <LinearProgress
+                  variant="determinate"
+                  value={metrics.smartContractExecution}
+                  sx={{ mb: 3 }}
+                />
 
                 <Typography gutterBottom>Oracle Verification</Typography>
                 <LinearProgress variant="determinate" value={metrics.oracleVerification} />
@@ -116,9 +120,7 @@ function Reports() {
                         primary={order.id}
                         secondary={`₹${order.amount.toLocaleString("en-IN")}`}
                       />
-                      <Typography variant="body2">
-                        {order.status}
-                      </Typography>
+                      <Typography variant="body2">{order.status}</Typography>
                     </ListItem>
                   ))}
                 </List>

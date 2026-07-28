@@ -1,5 +1,12 @@
 import { EscrowRecord } from "../models/Escrow";
-import { getDocument, listDocuments, runQuery, setDocument, updateDocument, whereEquals } from "./firestore.client";
+import {
+  getDocument,
+  listDocuments,
+  runQuery,
+  setDocument,
+  updateDocument,
+  whereEquals,
+} from "./firestore.client";
 
 const COLLECTION = "escrows";
 

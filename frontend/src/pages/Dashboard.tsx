@@ -94,34 +94,26 @@ function Dashboard() {
           variant="h4"
           sx={{
             fontWeight: 700,
-            }}
+          }}
           gutterBottom
         >
           Banking Operations Dashboard
         </Typography>
 
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ mb: 4 }}
-        >
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           Programmable Money & Smart Escrow Platform
         </Typography>
 
         {loadError && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            Could not reach the backend at {import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1"}.
-            Is it running?
+            Could not reach the backend at{" "}
+            {import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1"}. Is it running?
           </Alert>
         )}
 
         {/* Summary Cards */}
 
-        <Grid
-          container
-          spacing={3}
-          sx={{ mb: 3 }}
-        >
+        <Grid container spacing={3} sx={{ mb: 3 }}>
           {summaryCards.map((card, index) => (
             <Grid
               key={card.title}
@@ -131,32 +123,21 @@ function Dashboard() {
                 lg: 3,
               }}
             >
-              <SummaryCard
-                title={card.title}
-                value={card.value}
-                icon={summaryIcons[index]}
-              />
+              <SummaryCard title={card.title} value={card.value} icon={summaryIcons[index]} />
             </Grid>
           ))}
         </Grid>
 
         {/* Status + Progress + Activity */}
 
-        <Grid
-          container
-          spacing={3}
-          sx={{ mb: 3 }}
-        >
+        <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid
             size={{
               xs: 12,
               md: 4,
             }}
           >
-            <StatusCard
-              title="Platform Status"
-              items={platformStatus}
-            />
+            <StatusCard title="Platform Status" items={platformStatus} />
           </Grid>
 
           <Grid
@@ -178,19 +159,13 @@ function Dashboard() {
               md: 4,
             }}
           >
-            <ActivityCard
-              title="Recent Activities"
-              activities={activities}
-            />
+            <ActivityCard title="Recent Activities" activities={activities} />
           </Grid>
         </Grid>
 
         {/* Orders */}
 
-        <Grid
-          container
-          spacing={3}
-        >
+        <Grid container spacing={3}>
           <Grid
             size={{
               xs: 12,

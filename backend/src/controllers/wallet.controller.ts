@@ -38,7 +38,11 @@ export const walletController = {
 
       ok(
         res,
-        wallets.map((wallet) => ({ walletId: wallet.walletId, ownerName: wallet.ownerName, role: wallet.role }))
+        wallets.map((wallet) => ({
+          walletId: wallet.walletId,
+          ownerName: wallet.ownerName,
+          role: wallet.role,
+        }))
       );
     } catch (err) {
       next(err);

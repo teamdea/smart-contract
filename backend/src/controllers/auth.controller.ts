@@ -33,9 +33,17 @@ export const authController = {
         throw ApiError.badRequest('role must be "Buyer", "Supplier", or "Logistics"');
       }
 
-      const result = await walletRepository.register({ walletId, ownerName, role, pin, accountNumber });
+      const result = await walletRepository.register({
+        walletId,
+        ownerName,
+        role,
+        pin,
+        accountNumber,
+      });
       if (result === "ALREADY_EXISTS") {
-        throw ApiError.conflict(`Wallet ID "${walletId}" is already registered - try logging in instead`);
+        throw ApiError.conflict(
+          `Wallet ID "${walletId}" is already registered - try logging in instead`
+        );
       }
 
       // Only Buyers start funded - a real, ledger-held CashHolding, not a

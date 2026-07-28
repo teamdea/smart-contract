@@ -35,10 +35,8 @@ function OrdersTable({ orders }: OrdersTableProps) {
 
       <TableContainer>
         <Table>
-
           <TableHead>
             <TableRow>
-
               <TableCell>Order ID</TableCell>
 
               <TableCell>Customer</TableCell>
@@ -48,44 +46,27 @@ function OrdersTable({ orders }: OrdersTableProps) {
               <TableCell>Escrow</TableCell>
 
               <TableCell>Settlement</TableCell>
-
             </TableRow>
           </TableHead>
 
           <TableBody>
-
             {orders.map((order) => (
-
               <TableRow key={order.id}>
+                <TableCell>{order.id}</TableCell>
+
+                <TableCell>{order.buyer}</TableCell>
+
+                <TableCell>₹{order.amount.toLocaleString("en-IN")}</TableCell>
 
                 <TableCell>
-                  {order.id}
-                </TableCell>
-
-                <TableCell>
-                  {order.buyer}
-                </TableCell>
-
-                <TableCell>
-                  ₹{order.amount.toLocaleString("en-IN")}
-                </TableCell>
-
-                <TableCell>
-
                   <Chip
                     label={order.status === "Active" ? "Active" : "Released"}
-                    color={
-                      order.status === "Active"
-                        ? "success"
-                        : "warning"
-                    }
+                    color={order.status === "Active" ? "success" : "warning"}
                     size="small"
                   />
-
                 </TableCell>
 
                 <TableCell>
-
                   <Chip
                     label={order.settlement}
                     color={
@@ -99,15 +80,10 @@ function OrdersTable({ orders }: OrdersTableProps) {
                     }
                     size="small"
                   />
-
                 </TableCell>
-
               </TableRow>
-
             ))}
-
           </TableBody>
-
         </Table>
       </TableContainer>
 
@@ -117,14 +93,10 @@ function OrdersTable({ orders }: OrdersTableProps) {
           textAlign: "right",
         }}
       >
-        <Typography
-          variant="caption"
-          color="text.secondary"
-        >
+        <Typography variant="caption" color="text.secondary">
           Showing latest programmable money transactions
         </Typography>
       </Box>
-
     </Paper>
   );
 }

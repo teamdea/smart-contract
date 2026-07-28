@@ -26,7 +26,10 @@ import { apiErrorMessage } from "../utils/errors";
 // in this table - Logistics only sees still-Active orders (see
 // pendingOrders below), and all three of those are terminal/resolved
 // states. Still needed here for TypeScript's Record exhaustiveness.
-const FULFILLMENT_CHIP: Record<Order["fulfillmentStatus"], { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
+const FULFILLMENT_CHIP: Record<
+  Order["fulfillmentStatus"],
+  { label: string; color: "default" | "warning" | "info" | "success" | "error" }
+> = {
   AwaitingConfirmation: { label: "Awaiting Seller Confirmation", color: "default" },
   Confirmed: { label: "In Transit", color: "warning" },
   AwaitingBuyerVerification: { label: "Delivered - Awaiting Buyer Verification", color: "info" },
@@ -92,9 +95,9 @@ function Logistics() {
         <Box component="main" sx={{ flexGrow: 1, bgcolor: "#f4f6f8", minHeight: "100vh", p: 3 }}>
           <Toolbar />
           <Alert severity="warning">
-            Only a registered Logistics account can update delivery status here — deliberately
-            not the buyer or the supplier, so the party being paid can't certify their own
-            delivery. You're signed in as a <strong>{session?.role ?? "guest"}</strong>.
+            Only a registered Logistics account can update delivery status here — deliberately not
+            the buyer or the supplier, so the party being paid can't certify their own delivery.
+            You're signed in as a <strong>{session?.role ?? "guest"}</strong>.
           </Alert>
         </Box>
       </Box>
@@ -122,26 +125,44 @@ function Logistics() {
         </Typography>
 
         <Typography color="text.secondary" sx={{ mb: 4 }}>
-          Independent logistics/courier view — not the buyer or the supplier. An order shows
-          "In Transit" once its Supplier confirms it. Marking a shipment Failed (never arrived)
-          refunds the buyer immediately. Marking it Delivered does not release funds by itself -
-          it only confirms the package physically arrived; the Buyer still has to verify the
-          product itself before the supplier gets paid.
+          Independent logistics/courier view — not the buyer or the supplier. An order shows "In
+          Transit" once its Supplier confirms it. Marking a shipment Failed (never arrived) refunds
+          the buyer immediately. Marking it Delivered does not release funds by itself - it only
+          confirms the package physically arrived; the Buyer still has to verify the product itself
+          before the supplier gets paid.
         </Typography>
 
-        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
 
         <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Order ID</strong></TableCell>
-                <TableCell><strong>Buyer</strong></TableCell>
-                <TableCell><strong>Merchant</strong></TableCell>
-                <TableCell align="right"><strong>Order Value</strong></TableCell>
-                <TableCell><strong>Delivery SLA</strong></TableCell>
-                <TableCell><strong>Status</strong></TableCell>
-                <TableCell align="right"><strong>Actions</strong></TableCell>
+                <TableCell>
+                  <strong>Order ID</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Buyer</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Merchant</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Order Value</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Delivery SLA</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Status</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Actions</strong>
+                </TableCell>
               </TableRow>
             </TableHead>
 

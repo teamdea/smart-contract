@@ -10,10 +10,7 @@ interface FormSectionProps {
   children: ReactNode;
 }
 
-function FormSection({
-  title,
-  children,
-}: FormSectionProps) {
+function FormSection({ title, children }: FormSectionProps) {
   return (
     <Card
       elevation={2}

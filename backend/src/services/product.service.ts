@@ -37,7 +37,11 @@ export const productService = {
     if (!input.price || input.price <= 0) {
       throw ApiError.badRequest("price must be greater than zero");
     }
-    if (!input.escrowMarginPercent || input.escrowMarginPercent < 1 || input.escrowMarginPercent > 100) {
+    if (
+      !input.escrowMarginPercent ||
+      input.escrowMarginPercent < 1 ||
+      input.escrowMarginPercent > 100
+    ) {
       throw ApiError.badRequest("escrowMarginPercent must be between 1 and 100");
     }
 

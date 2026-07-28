@@ -200,10 +200,7 @@ function Sidebar() {
           textAlign: "center",
         }}
       >
-        <Typography
-          variant="caption"
-          color="text.secondary"
-        >
+        <Typography variant="caption" color="text.secondary">
           Powered by
         </Typography>
 

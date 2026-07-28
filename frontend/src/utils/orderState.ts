@@ -9,11 +9,7 @@ import type { Order } from "../services/api";
 // current synchronous flow. This derives the single furthest-reached state
 // from data already tracked (order.status), no new backend state needed.
 export type OrderLifecycleState =
-  | "Escrow Created"
-  | "Fund Hold Active (90%)"
-  | "Delivery Pending"
-  | "Payment Settled"
-  | "Refunded";
+  "Escrow Created" | "Fund Hold Active (90%)" | "Delivery Pending" | "Payment Settled" | "Refunded";
 
 export type OrderLifecycleColor = "info" | "warning" | "success" | "error";
 

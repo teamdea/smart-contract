@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 const timestamp = () => new Date().toISOString();
 
 export const logger = {
