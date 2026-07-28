@@ -12,12 +12,7 @@ interface SummaryCardProps {
   icon?: ReactNode;
 }
 
-function SummaryCard({
-  title,
-  value,
-  subtitle,
-  icon,
-}: SummaryCardProps) {
+function SummaryCard({ title, value, subtitle, icon }: SummaryCardProps) {
   return (
     <Card
       elevation={2}
@@ -40,10 +35,7 @@ function SummaryCard({
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-            >
+            <Typography variant="body2" color="text.secondary">
               {title}
             </Typography>
 

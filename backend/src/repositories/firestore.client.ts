@@ -91,7 +91,10 @@ function fromFirestoreFields<T>(fields: Record<string, any> | undefined): T {
   return record as T;
 }
 
-export async function getDocument<T = FsRow>(collection: string, id: string): Promise<T | undefined> {
+export async function getDocument<T = FsRow>(
+  collection: string,
+  id: string
+): Promise<T | undefined> {
   const json = await request(`/${collection}/${encodeURIComponent(id)}`, "GET");
   if (!json) return undefined;
   return fromFirestoreFields<T>(json.fields);

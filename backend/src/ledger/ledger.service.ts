@@ -89,7 +89,9 @@ function escrowHoldingWalletId(escrowId: string): string {
 export async function getCashHolding(walletId: string): Promise<CashHolding | undefined> {
   const templateId = getCashHoldingTemplateId();
   const parties = await getParties();
-  const contracts = await cantonClient.query<DamlCashHoldingPayload>(templateId, [parties.operator]);
+  const contracts = await cantonClient.query<DamlCashHoldingPayload>(templateId, [
+    parties.operator,
+  ]);
   const match = contracts.find((contract) => contract.payload.walletId === walletId);
   if (!match) return undefined;
   return { contractId: match.contractId, amount: fromDamlDecimal(match.payload.amount) };
@@ -130,7 +132,9 @@ export async function fundEscrow(params: FundEscrowParams): Promise<string> {
 
   const holding = await getCashHolding(params.buyerWalletId);
   if (!holding) {
-    throw new LedgerError(`No CashHolding found for buyer wallet "${params.buyerWalletId}" - was it registered?`);
+    throw new LedgerError(
+      `No CashHolding found for buyer wallet "${params.buyerWalletId}" - was it registered?`
+    );
   }
 
   const result = await cantonClient.exercise<string>(
@@ -174,11 +178,15 @@ export async function confirmDelivery(
 
   const buyerHolding = await getCashHolding(buyerWalletId);
   if (!buyerHolding) {
-    throw new LedgerError(`No CashHolding found for buyer wallet "${buyerWalletId}" - this should not happen once an order exists`);
+    throw new LedgerError(
+      `No CashHolding found for buyer wallet "${buyerWalletId}" - this should not happen once an order exists`
+    );
   }
   const escrowHolding = await getCashHolding(escrowHoldingWalletId(escrowId));
   if (!escrowHolding) {
-    throw new LedgerError(`No escrow-managed CashHolding found for escrow "${escrowId}" - this should not happen once an order exists`);
+    throw new LedgerError(
+      `No escrow-managed CashHolding found for escrow "${escrowId}" - this should not happen once an order exists`
+    );
   }
   const supplierHolding = await getCashHolding(supplierWalletId);
 
@@ -202,17 +210,25 @@ export async function confirmDelivery(
 // account back to the buyer - the 90% was never debited from the buyer
 // under this model, so there's nothing else to give back. Marks the
 // escrow Refunded in the same atomic transaction.
-export async function failOrExpireDelivery(contractId: string, escrowId: string, buyerWalletId: string): Promise<string> {
+export async function failOrExpireDelivery(
+  contractId: string,
+  escrowId: string,
+  buyerWalletId: string
+): Promise<string> {
   const templateId = getEscrowTemplateId();
   const parties = await getParties();
 
   const buyerHolding = await getCashHolding(buyerWalletId);
   if (!buyerHolding) {
-    throw new LedgerError(`No CashHolding found for buyer wallet "${buyerWalletId}" - this should not happen once an order exists`);
+    throw new LedgerError(
+      `No CashHolding found for buyer wallet "${buyerWalletId}" - this should not happen once an order exists`
+    );
   }
   const escrowHolding = await getCashHolding(escrowHoldingWalletId(escrowId));
   if (!escrowHolding) {
-    throw new LedgerError(`No escrow-managed CashHolding found for escrow "${escrowId}" - this should not happen once an order exists`);
+    throw new LedgerError(
+      `No escrow-managed CashHolding found for escrow "${escrowId}" - this should not happen once an order exists`
+    );
   }
 
   const result = await cantonClient.exercise<string>(

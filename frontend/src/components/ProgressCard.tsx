@@ -10,11 +10,7 @@ interface ProgressCardProps {
   description: string;
 }
 
-function ProgressCard({
-  title,
-  value,
-  description,
-}: ProgressCardProps) {
+function ProgressCard({ title, value, description }: ProgressCardProps) {
   return (
     <Card
       elevation={2}
@@ -23,12 +19,11 @@ function ProgressCard({
       }}
     >
       <CardContent>
-
         <Typography
           variant="h6"
           sx={{
-        fontWeight: 700,
-        }}
+            fontWeight: 700,
+          }}
         >
           {title}
         </Typography>
@@ -54,14 +49,10 @@ function ProgressCard({
         />
 
         <Box sx={{ mt: 2 }}>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-          >
+          <Typography variant="body2" color="text.secondary">
             {description}
           </Typography>
         </Box>
-
       </CardContent>
     </Card>
   );

@@ -22,7 +22,11 @@ async function requireEscrow(orderId: string): Promise<EscrowRecord> {
 // account AND pays the supplier the full order amount, atomically, on the
 // ledger (Escrow.daml's ConfirmDelivery choice) - there is no separate CBS
 // step anymore.
-async function settle(order: Order, escrow: EscrowRecord, fulfillmentStatus: FulfillmentStatus): Promise<Order> {
+async function settle(
+  order: Order,
+  escrow: EscrowRecord,
+  fulfillmentStatus: FulfillmentStatus
+): Promise<Order> {
   // Daml contracts are immutable: exercising a consuming choice archives
   // escrow.contractId and creates a new contract, so the new ID must be
   // persisted or later lookups would point at an archived contract.
@@ -56,8 +60,16 @@ async function settle(order: Order, escrow: EscrowRecord, fulfillmentStatus: Ful
 // (Logistics reporting a shipment never arrived, and the Buyer verifying a
 // delivered product failed) - fulfillmentStatus is passed in so each
 // caller can record its own distinct reason for the refund.
-async function refund(order: Order, escrow: EscrowRecord, fulfillmentStatus: FulfillmentStatus): Promise<Order> {
-  const newContractId = await ledgerService.failOrExpireDelivery(escrow.contractId, escrow.escrowId, order.buyerWalletId);
+async function refund(
+  order: Order,
+  escrow: EscrowRecord,
+  fulfillmentStatus: FulfillmentStatus
+): Promise<Order> {
+  const newContractId = await ledgerService.failOrExpireDelivery(
+    escrow.contractId,
+    escrow.escrowId,
+    order.buyerWalletId
+  );
 
   await escrowRepository.update(escrow.escrowId, {
     contractId: newContractId,
@@ -98,7 +110,9 @@ export const escrowService = {
     // been resolved (fulfillmentStatus alone wouldn't catch this - it
     // never advances past "Confirmed" here, only order.status does).
     if (order.status !== "Active") {
-      throw ApiError.badRequest(`Order ${orderId} has already been resolved (status: ${order.status})`);
+      throw ApiError.badRequest(
+        `Order ${orderId} has already been resolved (status: ${order.status})`
+      );
     }
     const escrow = await requireEscrow(orderId);
 
@@ -109,7 +123,9 @@ export const escrowService = {
       // its contents are what was ordered and in acceptable condition.
       // Nothing moves on the ledger yet; only the Buyer's own
       // processBuyerVerification call below actually settles or refunds.
-      const updated = await orderRepository.update(orderId, { fulfillmentStatus: "AwaitingBuyerVerification" });
+      const updated = await orderRepository.update(orderId, {
+        fulfillmentStatus: "AwaitingBuyerVerification",
+      });
       await logActivity(`Delivered - awaiting Buyer verification for ${orderId}`);
       return updated as Order;
     }
@@ -122,7 +138,11 @@ export const escrowService = {
 
   // Only the order's own Buyer can verify it, and only once Logistics has
   // actually reported Delivered - see FulfillmentStatus.ts.
-  async processBuyerVerification(orderId: string, buyerWalletId: string, verified: boolean): Promise<Order> {
+  async processBuyerVerification(
+    orderId: string,
+    buyerWalletId: string,
+    verified: boolean
+  ): Promise<Order> {
     const order = await orderRepository.findById(orderId);
     if (!order) {
       throw ApiError.notFound(`Order ${orderId} not found`);
@@ -140,10 +160,14 @@ export const escrowService = {
     // contract, so a second attempt would fail on the ledger anyway) - this
     // just gives a clean rejection instead of a raw ledger error.
     if (order.status !== "Active") {
-      throw ApiError.badRequest(`Order ${orderId} has already been resolved (status: ${order.status})`);
+      throw ApiError.badRequest(
+        `Order ${orderId} has already been resolved (status: ${order.status})`
+      );
     }
     const escrow = await requireEscrow(orderId);
 
-    return verified ? settle(order, escrow, "ProductVerified") : refund(order, escrow, "ProductFailed");
+    return verified
+      ? settle(order, escrow, "ProductVerified")
+      : refund(order, escrow, "ProductFailed");
   },
 };

@@ -14,10 +14,7 @@ interface ActivityCardProps {
   activities: Activity[];
 }
 
-function ActivityCard({
-  title,
-  activities,
-}: ActivityCardProps) {
+function ActivityCard({ title, activities }: ActivityCardProps) {
   return (
     <Card
       elevation={2}
@@ -26,12 +23,11 @@ function ActivityCard({
       }}
     >
       <CardContent>
-
         <Typography
           variant="h6"
           sx={{
             fontWeight: 700,
-        }}
+          }}
           gutterBottom
         >
           {title}
@@ -47,22 +43,18 @@ function ActivityCard({
             }}
           >
             <Typography
-             sx={{
-            fontWeight: 600,
-            }}
+              sx={{
+                fontWeight: 600,
+              }}
             >
               {activity.title}
             </Typography>
 
-            <Typography
-              variant="body2"
-              color="text.secondary"
-            >
+            <Typography variant="body2" color="text.secondary">
               {activity.time}
             </Typography>
           </Box>
         ))}
-
       </CardContent>
     </Card>
   );

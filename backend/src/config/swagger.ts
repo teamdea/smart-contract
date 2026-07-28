@@ -79,7 +79,10 @@ export const swaggerSpec = {
                   ownerName: { type: "string", example: "Demo Corp" },
                   role: { type: "string", enum: ["Buyer", "Supplier", "Logistics"] },
                   pin: { type: "string", description: "Login credential you choose" },
-                  accountNumber: { type: "string", description: "Second credential for viewing balance" },
+                  accountNumber: {
+                    type: "string",
+                    description: "Second credential for viewing balance",
+                  },
                 },
               },
             },
@@ -88,7 +91,9 @@ export const swaggerSpec = {
         responses: {
           "201": {
             description: "Registered - includes a session token",
-            content: { "application/json": { schema: { $ref: "#/components/schemas/WalletIdentity" } } },
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/WalletIdentity" } },
+            },
           },
           "409": { description: "Wallet ID already registered" },
         },
@@ -157,8 +162,13 @@ export const swaggerSpec = {
           },
         },
         responses: {
-          "201": { description: "Order created", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
-          "400": { description: "Missing/invalid input, or a wallet isn't registered with the right role" },
+          "201": {
+            description: "Order created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } },
+          },
+          "400": {
+            description: "Missing/invalid input, or a wallet isn't registered with the right role",
+          },
           "401": { description: "Missing or invalid session token" },
           "403": { description: "Signed-in account is not a Buyer" },
         },
@@ -170,7 +180,10 @@ export const swaggerSpec = {
         tags: ["Orders"],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         responses: {
-          "200": { description: "The order", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
+          "200": {
+            description: "The order",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } },
+          },
           "404": { description: "Order not found" },
         },
       },
@@ -197,7 +210,10 @@ export const swaggerSpec = {
           },
         },
         responses: {
-          "200": { description: "Updated order", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
+          "200": {
+            description: "Updated order",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } },
+          },
           "401": { description: "Missing or invalid session token" },
           "403": { description: "Signed-in account is not Logistics" },
         },
@@ -219,7 +235,9 @@ export const swaggerSpec = {
         summary: "Get the last known shipment status for an order",
         tags: ["Oracle"],
         parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Shipment status (defaults to Pending if none recorded yet)" } },
+        responses: {
+          "200": { description: "Shipment status (defaults to Pending if none recorded yet)" },
+        },
       },
     },
     "/oracle/webhook": {
@@ -256,7 +274,12 @@ export const swaggerSpec = {
       get: {
         summary: "Dashboard + reports aggregate data",
         tags: ["Dashboard"],
-        responses: { "200": { description: "Summary cards, platform status, activity feed, recent orders, report metrics" } },
+        responses: {
+          "200": {
+            description:
+              "Summary cards, platform status, activity feed, recent orders, report metrics",
+          },
+        },
       },
     },
     "/wallets": {

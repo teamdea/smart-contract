@@ -36,7 +36,10 @@ function getStages(order: Order): { title: string; status: StageStatus }[] {
     { title: "Escrow Smart Contract", status: "Completed" },
     { title: "Logistics Oracle", status: isActive ? "Processing" : "Completed" },
     { title: "Settlement", status: finalStatus },
-    { title: isCompleted ? "Merchant" : "Buyer (Refund)", status: isActive ? "Waiting" : finalStatus },
+    {
+      title: isCompleted ? "Merchant" : "Buyer (Refund)",
+      status: isActive ? "Waiting" : finalStatus,
+    },
   ];
 }
 
@@ -129,9 +132,7 @@ function Settlement() {
                           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                             <StageIcon status={stage.status} />
 
-                            <Typography sx={{ fontWeight: 600 }}>
-                              {stage.title}
-                            </Typography>
+                            <Typography sx={{ fontWeight: 600 }}>{stage.title}</Typography>
                           </Box>
 
                           <Chip
@@ -170,17 +171,35 @@ function Settlement() {
                   <Divider sx={{ my: 2 }} />
 
                   <Stack spacing={2}>
-                    <Typography><strong>Order ID:</strong> {order.id}</Typography>
-                    <Typography><strong>Buyer:</strong> {order.buyer}</Typography>
-                    <Typography><strong>Buyer Wallet:</strong> {order.buyerWalletId}</Typography>
-                    <Typography><strong>Merchant:</strong> {order.merchant}</Typography>
-                    <Typography><strong>Supplier Wallet:</strong> {order.supplierWalletId}</Typography>
-                    <Typography><strong>Order Value:</strong> ₹{order.amount.toLocaleString("en-IN")}</Typography>
-                    <Typography><strong>Escrow:</strong> ₹{order.escrow.toLocaleString("en-IN")}</Typography>
-                    <Typography><strong>Settlement:</strong> {order.settlement}</Typography>
+                    <Typography>
+                      <strong>Order ID:</strong> {order.id}
+                    </Typography>
+                    <Typography>
+                      <strong>Buyer:</strong> {order.buyer}
+                    </Typography>
+                    <Typography>
+                      <strong>Buyer Wallet:</strong> {order.buyerWalletId}
+                    </Typography>
+                    <Typography>
+                      <strong>Merchant:</strong> {order.merchant}
+                    </Typography>
+                    <Typography>
+                      <strong>Supplier Wallet:</strong> {order.supplierWalletId}
+                    </Typography>
+                    <Typography>
+                      <strong>Order Value:</strong> ₹{order.amount.toLocaleString("en-IN")}
+                    </Typography>
+                    <Typography>
+                      <strong>Escrow:</strong> ₹{order.escrow.toLocaleString("en-IN")}
+                    </Typography>
+                    <Typography>
+                      <strong>Settlement:</strong> {order.settlement}
+                    </Typography>
 
                     <Box>
-                      <Typography sx={{ mb: 0.5 }}><strong>Contract State:</strong></Typography>
+                      <Typography sx={{ mb: 0.5 }}>
+                        <strong>Contract State:</strong>
+                      </Typography>
                       <Chip
                         label={getOrderLifecycleState(order)}
                         color={getOrderLifecycleColor(getOrderLifecycleState(order))}
@@ -191,15 +210,17 @@ function Settlement() {
                     {!isResolved && (
                       <Alert severity="info">
                         Waiting on the merchant to report delivery from the{" "}
-                        <strong>Logistics</strong> page — that's what releases or refunds the
-                        held escrow funds.
+                        <strong>Logistics</strong> page — that's what releases or refunds the held
+                        escrow funds.
                       </Alert>
                     )}
 
                     <Button
                       variant="outlined"
                       onClick={() =>
-                        isResolved ? navigate("/orders") : window.open("/logistics", "_blank", "noopener,noreferrer")
+                        isResolved
+                          ? navigate("/orders")
+                          : window.open("/logistics", "_blank", "noopener,noreferrer")
                       }
                     >
                       {isResolved ? "Back to Orders" : "Go to Logistics"}

@@ -91,12 +91,15 @@ function SellerProducts() {
           My Products
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Add products under your business category. Each product carries its own price and its
-          own escrow margin - a high-value item doesn't need to use the same margin as a
-          low-value one.
+          Add products under your business category. Each product carries its own price and its own
+          escrow margin - a high-value item doesn't need to use the same margin as a low-value one.
         </Typography>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
         <FormSection title="Add a Product">
           <Grid container spacing={2}>
@@ -156,10 +159,18 @@ function SellerProducts() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Category</strong></TableCell>
-                <TableCell><strong>Product</strong></TableCell>
-                <TableCell align="right"><strong>Price</strong></TableCell>
-                <TableCell align="right"><strong>Escrow Margin</strong></TableCell>
+                <TableCell>
+                  <strong>Category</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Product</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Price</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Escrow Margin</strong>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

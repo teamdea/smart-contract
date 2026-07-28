@@ -4,7 +4,13 @@
 // filter always matches Suppliers exactly - no risk of "Automobile" vs
 // "Automobiles" silently failing to match. Mirrored in
 // frontend/src/config/productCategories.ts - keep both in sync.
-export const PRODUCT_CATEGORIES = ["Automobile", "Electronics", "Textiles", "Machinery", "Agriculture"];
+export const PRODUCT_CATEGORIES = [
+  "Automobile",
+  "Electronics",
+  "Textiles",
+  "Machinery",
+  "Agriculture",
+];
 
 export const DAML_TEMPLATE_MODULE = "Escrow";
 export const DAML_TEMPLATE_ENTITY = "Escrow";

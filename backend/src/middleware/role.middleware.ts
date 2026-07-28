@@ -24,7 +24,10 @@ export function requireRole(role: WalletRole) {
         throw ApiError.unauthorized("Missing or invalid session - please log in again");
       }
       if (wallet.role !== role) {
-        throw new ApiError(403, `This action requires a ${role} account - you're signed in as a ${wallet.role}`);
+        throw new ApiError(
+          403,
+          `This action requires a ${role} account - you're signed in as a ${wallet.role}`
+        );
       }
 
       req.wallet = wallet;

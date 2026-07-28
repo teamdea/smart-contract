@@ -14,56 +14,89 @@ import RequireAuth from "./components/RequireAuth";
 function App() {
   return (
     <Routes>
-      <Route
-        path="/"
-        element={<Navigate replace to="/dashboard" />}
-      />
+      <Route path="/" element={<Navigate replace to="/dashboard" />} />
 
       <Route path="/login" element={<Login />} />
 
       <Route
         path="/dashboard"
-        element={<RequireAuth><Dashboard /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <Dashboard />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/create-order"
-        element={<RequireAuth><CreateOrder /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <CreateOrder />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/orders"
-        element={<RequireAuth><Orders /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <Orders />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/settlement"
-        element={<RequireAuth><Settlement /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <Settlement />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/settlement/:orderId"
-        element={<RequireAuth><Settlement /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <Settlement />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/logistics"
-        element={<RequireAuth><Logistics /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <Logistics />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/my-products"
-        element={<RequireAuth><SellerProducts /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <SellerProducts />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/wallets"
-        element={<RequireAuth><Wallets /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <Wallets />
+          </RequireAuth>
+        }
       />
 
       <Route
         path="/reports"
-        element={<RequireAuth><Reports /></RequireAuth>}
+        element={
+          <RequireAuth>
+            <Reports />
+          </RequireAuth>
+        }
       />
     </Routes>
   );

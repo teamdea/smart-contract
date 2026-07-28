@@ -80,7 +80,7 @@ function Login() {
       navigate("/logistics");
     } catch {
       setError(
-        "Logistics demo account isn't set up on this backend yet - run \"npm run seed\" in backend/ first."
+        'Logistics demo account isn\'t set up on this backend yet - run "npm run seed" in backend/ first.'
       );
     } finally {
       setSubmitting(false);
@@ -162,7 +162,11 @@ function Login() {
                 Continue as:
               </Typography>
 
-              {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+              {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              )}
 
               <Stack spacing={1.5}>
                 <Button
@@ -207,12 +211,23 @@ function Login() {
                 register a new wallet.
               </Typography>
 
-              <Tabs value={mode} onChange={(_e, v) => { setMode(v); setError(null); }} sx={{ mb: 3 }}>
+              <Tabs
+                value={mode}
+                onChange={(_e, v) => {
+                  setMode(v);
+                  setError(null);
+                }}
+                sx={{ mb: 3 }}
+              >
                 <Tab label="Login" value="login" />
                 <Tab label="Register" value="register" />
               </Tabs>
 
-              {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+              {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              )}
 
               {mode === "login" ? (
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>

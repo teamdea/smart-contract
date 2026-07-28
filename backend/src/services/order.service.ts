@@ -64,7 +64,9 @@ export const orderService = {
       throw ApiError.badRequest(`Supplier wallet "${input.supplierWalletId}" is not registered`);
     }
     if (supplierWallet.role !== "Supplier") {
-      throw ApiError.badRequest(`Wallet "${input.supplierWalletId}" is not registered as a Supplier`);
+      throw ApiError.badRequest(
+        `Wallet "${input.supplierWalletId}" is not registered as a Supplier`
+      );
     }
 
     // The order amount and escrow margin are never taken from the request
@@ -76,11 +78,14 @@ export const orderService = {
       throw ApiError.badRequest(`Product "${input.productId}" not found`);
     }
     if (product.sellerWalletId !== input.supplierWalletId) {
-      throw ApiError.badRequest(`Product "${input.productId}" does not belong to supplier "${input.supplierWalletId}"`);
+      throw ApiError.badRequest(
+        `Product "${input.productId}" does not belong to supplier "${input.supplierWalletId}"`
+      );
     }
     const orderAmount = product.price;
     const escrowAmount = Math.round((product.price * product.escrowMarginPercent) / 100);
-    const deliverySla = input.deliverySla ?? formatDisplayDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
+    const deliverySla =
+      input.deliverySla ?? formatDisplayDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
 
     const existingOrders = await orderRepository.findAll();
     const sequence = 1001 + existingOrders.length;

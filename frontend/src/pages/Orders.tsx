@@ -35,7 +35,10 @@ const FULFILLMENT_LABELS: Record<Order["fulfillmentStatus"], string> = {
   DeliveryFailed: "Delivery Failed",
 };
 
-const FULFILLMENT_COLORS: Record<Order["fulfillmentStatus"], "default" | "info" | "success" | "error"> = {
+const FULFILLMENT_COLORS: Record<
+  Order["fulfillmentStatus"],
+  "default" | "info" | "success" | "error"
+> = {
   AwaitingConfirmation: "default",
   Confirmed: "info",
   AwaitingBuyerVerification: "info",
@@ -70,14 +73,15 @@ function Orders() {
         order.buyer.toLowerCase().includes(search.toLowerCase()) ||
         order.merchant.toLowerCase().includes(search.toLowerCase());
 
-      const matchesStatus =
-        status === "All" || order.status === status;
+      const matchesStatus = status === "All" || order.status === status;
 
       return matchesSearch && matchesStatus;
     });
   }, [orders, search, status]);
 
-  const statusColor = (value: string) => {
+  const statusColor = (
+    value: string
+  ): "success" | "primary" | "warning" | "error" | "default" => {
     switch (value) {
       case "Completed":
         return "success";
@@ -152,28 +156,21 @@ function Orders() {
       >
         <Toolbar />
 
-        <Typography
-          variant="h4"
-          sx={{ fontWeight: 700 }}
-          gutterBottom
-        >
+        <Typography variant="h4" sx={{ fontWeight: 700 }} gutterBottom>
           My Orders
         </Typography>
 
-        <Typography
-          color="text.secondary"
-          sx={{ mb: 3 }}
-        >
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
           Manage and track all programmable money transactions.
         </Typography>
 
-        {actionError && <Alert severity="error" sx={{ mb: 3 }}>{actionError}</Alert>}
+        {actionError && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {actionError}
+          </Alert>
+        )}
 
-        <Grid
-          container
-          spacing={2}
-          sx={{ mb: 3 }}
-        >
+        <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
@@ -213,24 +210,43 @@ function Orders() {
           </Grid>
         </Grid>
 
-        <TableContainer
-          component={Paper}
-          sx={{ borderRadius: 3 }}
-        >
+        <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Order ID</strong></TableCell>
-                <TableCell><strong>Buyer</strong></TableCell>
-                <TableCell><strong>Merchant</strong></TableCell>
-                <TableCell align="right"><strong>Order Value</strong></TableCell>
-                <TableCell align="right"><strong>Escrow</strong></TableCell>
-                <TableCell><strong>Status</strong></TableCell>
-                <TableCell><strong>Contract State</strong></TableCell>
-                <TableCell><strong>Fulfillment</strong></TableCell>
-                <TableCell><strong>Settlement</strong></TableCell>
-                <TableCell><strong>Created On</strong></TableCell>
-                <TableCell align="right"><strong>Actions</strong></TableCell>
+                <TableCell>
+                  <strong>Order ID</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Buyer</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Merchant</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Order Value</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Escrow</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Status</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Contract State</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Fulfillment</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Settlement</strong>
+                </TableCell>
+                <TableCell>
+                  <strong>Created On</strong>
+                </TableCell>
+                <TableCell align="right">
+                  <strong>Actions</strong>
+                </TableCell>
               </TableRow>
             </TableHead>
 
@@ -245,16 +261,12 @@ function Orders() {
                   <TableCell>{order.id}</TableCell>
                   <TableCell>{order.buyer}</TableCell>
                   <TableCell>{order.merchant}</TableCell>
-                  <TableCell align="right">
-                    ₹{order.amount.toLocaleString("en-IN")}
-                  </TableCell>
-                  <TableCell align="right">
-                    ₹{order.escrow.toLocaleString("en-IN")}
-                  </TableCell>
+                  <TableCell align="right">₹{order.amount.toLocaleString("en-IN")}</TableCell>
+                  <TableCell align="right">₹{order.escrow.toLocaleString("en-IN")}</TableCell>
                   <TableCell>
                     <Chip
                       label={order.status}
-                      color={statusColor(order.status) as any}
+                      color={statusColor(order.status)}
                       size="small"
                     />
                   </TableCell>
@@ -276,38 +288,40 @@ function Orders() {
                   <TableCell>{order.settlement}</TableCell>
                   <TableCell>{order.createdOn}</TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    {isOwnSupplierOrder(order) && order.fulfillmentStatus === "AwaitingConfirmation" && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        disabled={busyOrderId === order.id}
-                        onClick={(e) => handleConfirm(order, e)}
-                      >
-                        Confirm Order
-                      </Button>
-                    )}
-                    {isOwnBuyerOrder(order) && order.fulfillmentStatus === "AwaitingBuyerVerification" && (
-                      <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                    {isOwnSupplierOrder(order) &&
+                      order.fulfillmentStatus === "AwaitingConfirmation" && (
                         <Button
                           size="small"
                           variant="contained"
-                          color="success"
                           disabled={busyOrderId === order.id}
-                          onClick={(e) => handleVerify(order, true, e)}
+                          onClick={(e) => handleConfirm(order, e)}
                         >
-                          Product Verified
+                          Confirm Order
                         </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          disabled={busyOrderId === order.id}
-                          onClick={(e) => handleVerify(order, false, e)}
-                        >
-                          Product Failed
-                        </Button>
-                      </Stack>
-                    )}
+                      )}
+                    {isOwnBuyerOrder(order) &&
+                      order.fulfillmentStatus === "AwaitingBuyerVerification" && (
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            disabled={busyOrderId === order.id}
+                            onClick={(e) => handleVerify(order, true, e)}
+                          >
+                            Product Verified
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            disabled={busyOrderId === order.id}
+                            onClick={(e) => handleVerify(order, false, e)}
+                          >
+                            Product Failed
+                          </Button>
+                        </Stack>
+                      )}
                   </TableCell>
                 </TableRow>
               ))}

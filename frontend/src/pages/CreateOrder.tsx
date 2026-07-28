@@ -14,7 +14,13 @@ import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import FormSection from "../components/FormSection";
 import SummaryCard from "../components/SummaryCard";
-import { createOrder, listProductsBySeller, listWalletsByRole, type Product, type WalletIdentity } from "../services/api";
+import {
+  createOrder,
+  listProductsBySeller,
+  listWalletsByRole,
+  type Product,
+  type WalletIdentity,
+} from "../services/api";
 import { getSession } from "../services/session";
 import { apiErrorMessage } from "../utils/errors";
 import { PRODUCT_CATEGORIES } from "../config/productCategories";
@@ -200,12 +206,17 @@ function CreateOrder() {
         {selectedProduct && (
           <FormSection title="Order Information">
             <Typography color="text.secondary" sx={{ mb: 2 }}>
-              Order amount and escrow margin are fixed by the seller for this product - not
-              editable here.
+              Order amount and escrow margin are fixed by the seller for this product - not editable
+              here.
             </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
-                <TextField fullWidth label="Order Amount" value={`₹${orderAmount.toLocaleString("en-IN")}`} disabled />
+                <TextField
+                  fullWidth
+                  label="Order Amount"
+                  value={`₹${orderAmount.toLocaleString("en-IN")}`}
+                  disabled
+                />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField fullWidth label="Escrow Margin" value={`${escrowPercent}%`} disabled />
@@ -215,12 +226,25 @@ function CreateOrder() {
         )}
 
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 4 }}><SummaryCard title="Hold Amount" value={`₹${holdAmount.toLocaleString("en-IN")}`} /></Grid>
-          <Grid size={{ xs: 12, md: 4 }}><SummaryCard title="Escrow Amount" value={`₹${escrowAmount.toLocaleString("en-IN")}`} /></Grid>
-          <Grid size={{ xs: 12, md: 4 }}><SummaryCard title="Settlement Amount" value={`₹${orderAmount.toLocaleString("en-IN")}`} /></Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <SummaryCard title="Hold Amount" value={`₹${holdAmount.toLocaleString("en-IN")}`} />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <SummaryCard title="Escrow Amount" value={`₹${escrowAmount.toLocaleString("en-IN")}`} />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <SummaryCard
+              title="Settlement Amount"
+              value={`₹${orderAmount.toLocaleString("en-IN")}`}
+            />
+          </Grid>
         </Grid>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
         <Button variant="contained" disabled={!canSubmit} onClick={handleCreateOrder}>
           {submitting ? "Creating..." : "Create Order"}

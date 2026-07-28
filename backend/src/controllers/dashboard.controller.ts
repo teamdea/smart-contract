@@ -24,7 +24,8 @@ export const dashboardController = {
 
       const settlementValue = completedOrders.reduce((sum, o) => sum + o.amount, 0);
       const escrowBalance = activeOrders.reduce((sum, o) => sum + o.escrow, 0);
-      const successRate = resolvedOrders > 0 ? (completedOrders.length / resolvedOrders) * 100 : 100;
+      const successRate =
+        resolvedOrders > 0 ? (completedOrders.length / resolvedOrders) * 100 : 100;
 
       // Every order in the store has a successfully created Daml escrow
       // contract by construction (createOrder fails atomically if the ledger

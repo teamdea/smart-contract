@@ -57,8 +57,8 @@ function Wallets() {
 
         <Typography color="text.secondary" sx={{ mb: 4 }}>
           {session?.role === "Buyer"
-            ? "\"Held\" is money committed to your pending orders; \"Available\" is spendable now."
-            : "\"Available\" is the balance you can spend or have already received."}
+            ? '"Held" is money committed to your pending orders; "Available" is spendable now.'
+            : '"Available" is the balance you can spend or have already received.'}
         </Typography>
 
         <Card sx={{ borderRadius: 3, mb: 3 }}>
@@ -69,8 +69,8 @@ function Wallets() {
 
             {session?.role === "Logistics" ? (
               <Typography color="text.secondary">
-                Logistics accounts are independent delivery-status verifiers and never hold
-                escrow funds — there's no balance to check here.
+                Logistics accounts are independent delivery-status verifiers and never hold escrow
+                funds — there's no balance to check here.
               </Typography>
             ) : (
               <>
@@ -94,7 +94,11 @@ function Wallets() {
                   </Button>
                 </Stack>
 
-                {ownWalletError && <Alert severity="error" sx={{ mb: 2 }}>{ownWalletError}</Alert>}
+                {ownWalletError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {ownWalletError}
+                  </Alert>
+                )}
 
                 {ownWallet && (
                   <Paper variant="outlined" sx={{ p: 2 }}>
@@ -102,12 +106,21 @@ function Wallets() {
                       {ownWallet.ownerName} ({ownWallet.role})
                     </Typography>
                     <Stack direction="row" spacing={4} sx={{ mt: 1 }}>
-                      <Typography>Available: <strong>₹{ownWallet.availableBalance.toLocaleString("en-IN")}</strong></Typography>
+                      <Typography>
+                        Available:{" "}
+                        <strong>₹{ownWallet.availableBalance.toLocaleString("en-IN")}</strong>
+                      </Typography>
                       {session?.role === "Buyer" && (
                         <>
-                          <Typography>Held: <strong>₹{(ownWallet.heldBalance ?? 0).toLocaleString("en-IN")}</strong></Typography>
                           <Typography>
-                            In Escrow: <strong>₹{(ownWallet.escrowedBalance ?? 0).toLocaleString("en-IN")}</strong>
+                            Held:{" "}
+                            <strong>₹{(ownWallet.heldBalance ?? 0).toLocaleString("en-IN")}</strong>
+                          </Typography>
+                          <Typography>
+                            In Escrow:{" "}
+                            <strong>
+                              ₹{(ownWallet.escrowedBalance ?? 0).toLocaleString("en-IN")}
+                            </strong>
                           </Typography>
                         </>
                       )}
@@ -121,7 +134,8 @@ function Wallets() {
                         <Stack spacing={0.5}>
                           {ownWallet.heldOrders!.map((entry) => (
                             <Typography key={entry.orderId} variant="body2">
-                              {entry.orderId} - {entry.sellerName}: <strong>₹{entry.heldAmount.toLocaleString("en-IN")}</strong>
+                              {entry.orderId} - {entry.sellerName}:{" "}
+                              <strong>₹{entry.heldAmount.toLocaleString("en-IN")}</strong>
                             </Typography>
                           ))}
                         </Stack>
