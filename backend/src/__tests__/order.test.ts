@@ -36,7 +36,7 @@ async function getActivityTitles(): Promise<string[]> {
 }
 
 describe("Create order", () => {
-  it("starts a new order as AwaitingConfirmation / Active / Pending", async () => {
+  it("starts a new order as Pending - nothing is held or escrowed yet", async () => {
     const buyer = await registerWallet("Buyer");
     const supplier = await registerWallet("Supplier");
     const product = await addProduct(supplier.token);
@@ -44,17 +44,41 @@ describe("Create order", () => {
     const res = await createOrder(buyer.token, supplier.walletId, product.id);
 
     expect(res.status).toBe(201);
-    expect(res.body.data.status).toBe("Active");
+    expect(res.body.data.status).toBe("Pending");
     expect(res.body.data.settlement).toBe("Pending");
     expect(res.body.data.fulfillmentStatus).toBe("AwaitingConfirmation");
   });
 
-  it("rejects an order larger than the buyer's current holding", async () => {
+  it("does not touch the buyer's balance at creation time", async () => {
+    const buyer = await registerWallet("Buyer");
+    const supplier = await registerWallet("Supplier");
+    const before = await getBalance(buyer.walletId, "9999");
+    const product = await addProduct(supplier.token, { price: 100000, escrowMarginPercent: 10 });
+
+    await createOrder(buyer.token, supplier.walletId, product.id);
+
+    const after = await getBalance(buyer.walletId, "9999");
+    expect(after.body.data.availableBalance).toBe(before.body.data.availableBalance);
+  });
+
+  it("allows creating an order the buyer can't actually afford - affordability is checked at confirm time", async () => {
     const buyer = await registerWallet("Buyer");
     const supplier = await registerWallet("Supplier");
     const product = await addProduct(supplier.token, { price: 999999999999, escrowMarginPercent: 10 });
 
     const res = await createOrder(buyer.token, supplier.walletId, product.id);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.status).toBe("Pending");
+  });
+
+  it("rejects confirmation when the buyer can no longer afford the order", async () => {
+    const buyer = await registerWallet("Buyer");
+    const supplier = await registerWallet("Supplier");
+    const product = await addProduct(supplier.token, { price: 999999999999, escrowMarginPercent: 10 });
+    const orderRes = await createOrder(buyer.token, supplier.walletId, product.id);
+
+    const res = await confirmOrder(supplier.token, orderRes.body.data.id);
 
     expect(res.status).toBeGreaterThanOrEqual(400);
   });
@@ -71,16 +95,20 @@ describe("Create order", () => {
 });
 
 describe("Confirm order (Supplier)", () => {
-  it("moves the order to Confirmed", async () => {
+  it("moves the order to Active/Confirmed and only now debits the buyer's margin", async () => {
     const buyer = await registerWallet("Buyer");
     const supplier = await registerWallet("Supplier");
-    const product = await addProduct(supplier.token);
+    const before = await getBalance(buyer.walletId, "9999");
+    const product = await addProduct(supplier.token, { price: 100000, escrowMarginPercent: 10 });
     const orderRes = await createOrder(buyer.token, supplier.walletId, product.id);
 
     const res = await confirmOrder(supplier.token, orderRes.body.data.id);
 
     expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe("Active");
     expect(res.body.data.fulfillmentStatus).toBe("Confirmed");
+    const after = await getBalance(buyer.walletId, "9999");
+    expect(before.body.data.availableBalance - after.body.data.availableBalance).toBe(10000);
   });
 
   it("rejects a different Supplier confirming someone else's order", async () => {
