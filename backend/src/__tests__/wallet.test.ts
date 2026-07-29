@@ -1,7 +1,8 @@
 // Covers wallet.routes.ts / wallet.controller.ts - reading a wallet's real
 // ledger-held balance, the account-number step-up check, and the
-// deferred-debit rule (only the margin moves at order time).
-import { registerWallet, addProduct, createOrder, getBalance } from "./helpers";
+// deferred-debit rule (only the margin moves, and only once the Supplier
+// confirms - not at order creation).
+import { registerWallet, addProduct, createOrder, confirmOrder, getBalance } from "./helpers";
 
 describe("Balance check", () => {
   it("gives a newly registered Buyer a real starting balance", async () => {
@@ -42,8 +43,8 @@ describe("Account-number step-up check", () => {
   });
 });
 
-describe("Deferred debit at order time", () => {
-  it("debits exactly the product's margin, not the full order amount", async () => {
+describe("Deferred debit - only the margin moves, only at confirmation", () => {
+  it("does not touch the buyer's balance while the order is only Pending", async () => {
     const buyer = await registerWallet("Buyer");
     const supplier = await registerWallet("Supplier");
     const before = await getBalance(buyer.walletId, "9999");
@@ -52,22 +53,44 @@ describe("Deferred debit at order time", () => {
     await createOrder(buyer.token, supplier.walletId, product.id);
 
     const after = await getBalance(buyer.walletId, "9999");
+    expect(after.body.data.availableBalance).toBe(before.body.data.availableBalance);
+  });
+
+  it("debits exactly the product's margin once the Supplier confirms - not the full order amount", async () => {
+    const buyer = await registerWallet("Buyer");
+    const supplier = await registerWallet("Supplier");
+    const before = await getBalance(buyer.walletId, "9999");
+
+    const product = await addProduct(supplier.token, { price: 100000, escrowMarginPercent: 10 });
+    const orderRes = await createOrder(buyer.token, supplier.walletId, product.id);
+    await confirmOrder(supplier.token, orderRes.body.data.id);
+
+    const after = await getBalance(buyer.walletId, "9999");
     const expectedMargin = Math.round((product.price * product.escrowMarginPercent) / 100);
 
     expect(before.body.data.availableBalance - after.body.data.availableBalance).toBe(expectedMargin);
   });
 
-  it("shows the pending order under heldOrders with the correct held/escrow split", async () => {
+  it("does not appear under heldOrders until the Supplier confirms", async () => {
     const buyer = await registerWallet("Buyer");
     const supplier = await registerWallet("Supplier");
     const product = await addProduct(supplier.token, { price: 100000, escrowMarginPercent: 10 });
     const orderRes = await createOrder(buyer.token, supplier.walletId, product.id);
 
-    const balance = await getBalance(buyer.walletId, "9999");
+    const balanceWhilePending = await getBalance(buyer.walletId, "9999");
+    const entryWhilePending = balanceWhilePending.body.data.heldOrders.find(
+      (o: { orderId: string }) => o.orderId === orderRes.body.data.id
+    );
+    expect(entryWhilePending).toBeUndefined();
 
-    expect(balance.body.data.escrowedBalance).toBeGreaterThanOrEqual(10000);
-    const entry = balance.body.data.heldOrders.find((o: { orderId: string }) => o.orderId === orderRes.body.data.id);
-    expect(entry).toBeDefined();
-    expect(entry.heldAmount).toBe(90000);
+    await confirmOrder(supplier.token, orderRes.body.data.id);
+
+    const balanceAfterConfirm = await getBalance(buyer.walletId, "9999");
+    expect(balanceAfterConfirm.body.data.escrowedBalance).toBeGreaterThanOrEqual(10000);
+    const entryAfterConfirm = balanceAfterConfirm.body.data.heldOrders.find(
+      (o: { orderId: string }) => o.orderId === orderRes.body.data.id
+    );
+    expect(entryAfterConfirm).toBeDefined();
+    expect(entryAfterConfirm.heldAmount).toBe(90000);
   });
 });

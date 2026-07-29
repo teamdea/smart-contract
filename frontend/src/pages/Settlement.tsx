@@ -26,19 +26,23 @@ import { getOrderLifecycleState, getOrderLifecycleColor } from "../utils/orderSt
 type StageStatus = "Completed" | "Processing" | "Waiting" | "Failed";
 
 function getStages(order: Order): { title: string; status: StageStatus }[] {
+  const isPending = order.status === "Pending";
   const isActive = order.status === "Active";
   const isCompleted = order.status === "Completed";
-  const finalStatus: StageStatus = isActive ? "Waiting" : isCompleted ? "Completed" : "Failed";
+  const finalStatus: StageStatus = isActive || isPending ? "Waiting" : isCompleted ? "Completed" : "Failed";
 
   return [
     { title: "Buyer", status: "Completed" },
-    { title: "Funds Hold (CBS)", status: "Completed" },
-    { title: "Escrow Smart Contract", status: "Completed" },
-    { title: "Logistics Oracle", status: isActive ? "Processing" : "Completed" },
+    // Nothing is held and no escrow exists until the Supplier confirms -
+    // both these stages are genuinely still "Waiting" for a Pending order,
+    // not a formality that already happened at order creation.
+    { title: "Funds Hold (CBS)", status: isPending ? "Waiting" : "Completed" },
+    { title: "Escrow Smart Contract", status: isPending ? "Waiting" : "Completed" },
+    { title: "Logistics Oracle", status: isPending ? "Waiting" : isActive ? "Processing" : "Completed" },
     { title: "Settlement", status: finalStatus },
     {
       title: isCompleted ? "Merchant" : "Buyer (Refund)",
-      status: isActive ? "Waiting" : finalStatus,
+      status: isActive || isPending ? "Waiting" : finalStatus,
     },
   ];
 }
@@ -207,7 +211,14 @@ function Settlement() {
                       />
                     </Box>
 
-                    {!isResolved && (
+                    {!isResolved && order.status === "Pending" && (
+                      <Alert severity="info">
+                        Waiting on the Supplier to confirm this order — nothing is held or
+                        escrowed until then.
+                      </Alert>
+                    )}
+
+                    {!isResolved && order.status === "Active" && (
                       <Alert severity="info">
                         Waiting on the merchant to report delivery from the{" "}
                         <strong>Logistics</strong> page — that's what releases or refunds the held

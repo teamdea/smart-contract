@@ -94,41 +94,18 @@ export const orderService = {
 
     const holdReferenceId = generateHoldReference();
 
-    // Diagram steps 4/4a/6/7: debit the buyer's real ledger-held balance and
-    // record the escrow contract, as one atomic Daml transaction (Escrow.daml's
-    // FundEscrow choice) - the fund hold is now the ledger itself, not a
-    // separate CBS simulator step.
-    const contractId = await ledgerService.fundEscrow({
-      buyerWalletId: input.buyerWalletId,
-      orderId,
-      escrowId,
-      holdReferenceId,
-      supplierWalletId: input.supplierWalletId,
-      orderAmount,
-      marginAmount: escrowAmount,
-      deliverySla,
-    });
-
-    const escrowRecord: EscrowRecord = {
-      escrowId,
-      orderId,
-      contractId,
-      holdReferenceId,
-      orderAmount,
-      marginAmount: escrowAmount,
-      status: "Created",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    await escrowRepository.create(escrowRecord);
-
+    // No ledger call here anymore, and deliberately so: nothing is held or
+    // escrowed at order-creation time. The buyer's funds aren't touched
+    // until the Supplier actually agrees to fulfill the order - see
+    // confirmOrder() below, which is now where FundEscrow runs. status
+    // "Pending" reflects that this order isn't backed by a real escrow yet.
     const order: Order = {
       id: orderId,
       buyer: buyerWallet.ownerName,
       merchant: supplierWallet.ownerName,
       amount: orderAmount,
       escrow: escrowAmount,
-      status: "Active",
+      status: "Pending",
       settlement: "Pending",
       createdOn: formatDisplayDate(new Date()),
       escrowId,
@@ -145,7 +122,8 @@ export const orderService = {
     return order;
   },
 
-  // Supplier acknowledges they've received the order. Only the order's own
+  // Supplier acknowledges they've received the order - and this is now the
+  // moment the buyer's funds actually get touched. Only the order's own
   // supplier can do this - a different registered Supplier account isn't
   // allowed to confirm someone else's order. This is also what hands the
   // order to Logistics: once Confirmed, it shows as "In Transit" there and
@@ -159,8 +137,42 @@ export const orderService = {
       throw ApiError.badRequest(`Order ${orderId} is already ${order.fulfillmentStatus}`);
     }
 
-    const updated = await orderRepository.update(orderId, { fulfillmentStatus: "Confirmed" });
-    await logActivity(`Order Confirmed by Supplier for ${orderId}`);
+    // Diagram steps 4/4a/6/7: debit the buyer's real ledger-held balance and
+    // record the escrow contract, as one atomic Daml transaction
+    // (Escrow.daml's FundEscrow choice) - deferred to here from order
+    // creation, so a buyer's money is only ever held once a Supplier has
+    // actually agreed to fulfill the order. If the buyer can no longer
+    // afford it by the time the Supplier confirms, this fails cleanly with
+    // a ledger error rather than silently having held funds since creation.
+    const contractId = await ledgerService.fundEscrow({
+      buyerWalletId: order.buyerWalletId,
+      orderId: order.id,
+      escrowId: order.escrowId,
+      holdReferenceId: order.holdReferenceId,
+      supplierWalletId: order.supplierWalletId,
+      orderAmount: order.amount,
+      marginAmount: order.escrow,
+      deliverySla: order.deliverySla,
+    });
+
+    const escrowRecord: EscrowRecord = {
+      escrowId: order.escrowId,
+      orderId: order.id,
+      contractId,
+      holdReferenceId: order.holdReferenceId,
+      orderAmount: order.amount,
+      marginAmount: order.escrow,
+      status: "Created",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await escrowRepository.create(escrowRecord);
+
+    const updated = await orderRepository.update(orderId, {
+      status: "Active",
+      fulfillmentStatus: "Confirmed",
+    });
+    await logActivity(`Escrow Funded and Order Confirmed by Supplier for ${orderId}`);
     return updated as Order;
   },
 };
